@@ -1,65 +1,144 @@
 import { db, doc, getDoc, setDoc, collection, query, orderBy, limit, where, getDocs, getCountFromServer, serverTimestamp } from "../firebase-config.js";
 import { todayKey, getUserId, showToast, shareText, fmtMs, withTimeout } from "../utils.js";
 
-const stage = () => document.getElementById("reactionStage");
+const ROUNDS = 5;
+const TARGET_SIZE = 62; // css .reaction-target 크기와 맞춰야 함
+const FIRST_DELAY_RANGE = [800, 1800]; // 시작 후 첫 원이 뜨기까지
+const GAP_RANGE = [350, 800]; // 원을 맞춘 뒤 다음 원이 뜨기까지
+
+const stageEl = () => document.getElementById("reactionStage");
+const centerEl = () => document.getElementById("reactionCenter");
 const msgEl = () => document.getElementById("reactionMsg");
 const subEl = () => document.getElementById("reactionSub");
+const targetEl = () => document.getElementById("reactionTarget");
+const badgeEl = () => document.getElementById("reactionRoundBadge");
 
-let state = "idle"; // idle | wait | go | fail | result
-let waitTimer = null;
-let goAt = 0;
+let state = "idle"; // idle | waiting | playing | fail | result
+let spawnTimer = null;
+let spawnAt = 0;
+let round = 0;
+let times = [];
 let lastResultMs = null;
 let currentNickname = { nickname: "", emoji: "" };
 
 export function setNickname(n) { currentNickname = n; }
 
-function setStage(next, msgHtml, subHtml) {
-  state = next;
-  const el = stage();
-  el.className = `reaction-stage state-${next}`;
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function setStageClass(cls) {
+  stageEl().className = `reaction-stage state-${cls}`;
+}
+
+function showCenter(msgHtml, subHtml) {
+  centerEl().classList.remove("hidden");
   msgEl().innerHTML = msgHtml;
   subEl().innerHTML = subHtml || "";
 }
+function hideCenter() {
+  centerEl().classList.add("hidden");
+}
 
 export function resetReactionScreen() {
-  clearTimeout(waitTimer);
-  setStage("idle", "탭해서 시작", "초록색으로 바뀌는 순간 화면을 터치하세요");
+  clearTimeout(spawnTimer);
+  state = "idle";
+  round = 0;
+  times = [];
+  setStageClass("idle");
+  targetEl().classList.add("hidden");
+  badgeEl().classList.add("hidden");
+  showCenter("탭해서 시작", "화면에 나타나는 원 5개를 최대한 빨리 터치하세요");
 }
 
-function beginWait() {
-  clearTimeout(waitTimer);
-  setStage("wait", "기다리세요…", "곧 초록색으로 바뀝니다");
-  const delay = 3000 + Math.random() * 7000; // 3~10초
-  waitTimer = setTimeout(() => {
-    goAt = performance.now();
-    setStage("go", "지금 터치!", "");
-  }, delay);
+function startGame() {
+  clearTimeout(spawnTimer);
+  state = "waiting";
+  round = 0;
+  times = [];
+  setStageClass("waiting");
+  hideCenter();
+  badgeEl().classList.remove("hidden");
+  badgeEl().textContent = `0/${ROUNDS}`;
+  const [min, max] = FIRST_DELAY_RANGE;
+  spawnTimer = setTimeout(spawnTarget, randInt(min, max));
 }
 
-async function handleFail() {
-  clearTimeout(waitTimer);
-  setStage("fail", "너무 빨랐어요! 🙈", "다시 탭해서 도전하세요");
+function spawnTarget() {
+  round += 1;
+  state = "playing";
+  badgeEl().textContent = `${round}/${ROUNDS}`;
+
+  const stage = stageEl();
+  const rect = stage.getBoundingClientRect();
+  const margin = TARGET_SIZE / 2 + 14;
+  const x = randInt(margin, Math.max(margin, rect.width - margin));
+  const y = randInt(margin, Math.max(margin, rect.height - margin));
+
+  const t = targetEl();
+  t.style.left = `${x}px`;
+  t.style.top = `${y}px`;
+  t.classList.remove("hidden");
+  // 애니메이션 재시작을 위해 리플로우
+  t.style.animation = "none";
+  void t.offsetWidth;
+  t.style.animation = "";
+
+  spawnAt = performance.now();
+  t.onclick = (e) => {
+    e.stopPropagation();
+    handleTargetTap();
+  };
 }
 
-async function handleSuccess() {
-  const ms = performance.now() - goAt;
-  lastResultMs = ms;
-  setStage(
-    "result",
-    `<div class="big-num">${Math.round(ms)}<span style="font-size:22px;">ms</span></div>`,
-    "다시 탭하면 재도전!"
+function handleTargetTap() {
+  if (state !== "playing") return;
+  const elapsed = performance.now() - spawnAt;
+  times.push(elapsed);
+  targetEl().classList.add("hidden");
+  targetEl().onclick = null;
+
+  if (round >= ROUNDS) {
+    finishGame();
+  } else {
+    state = "waiting";
+    const [min, max] = GAP_RANGE;
+    spawnTimer = setTimeout(spawnTarget, randInt(min, max));
+  }
+}
+
+function finishGame() {
+  clearTimeout(spawnTimer);
+  state = "result";
+  badgeEl().classList.add("hidden");
+  const avg = times.reduce((a, b) => a + b, 0) / times.length;
+  lastResultMs = avg;
+  setStageClass("result");
+  const breakdown = times.map((t, i) => `R${i + 1} ${Math.round(t)}ms`).join(" · ");
+  showCenter(
+    `<div class="big-num">${Math.round(avg)}<span style="font-size:20px;">ms 평균</span></div>`,
+    `다시 탭하면 재도전! <div class="round-times">${breakdown}</div>`
   );
-  await saveRecord(ms);
+  saveRecord(avg);
 }
 
+function falseStart() {
+  clearTimeout(spawnTimer);
+  state = "fail";
+  round = 0;
+  times = [];
+  targetEl().classList.add("hidden");
+  badgeEl().classList.add("hidden");
+  setStageClass("fail");
+  showCenter("너무 성급했어요! 🙈", "원이 뜨기 전엔 화면을 누르지 마세요. 다시 탭해서 도전!");
+}
+
+// 스테이지(원이 아닌 배경) 탭 처리
 export function handleStageTap() {
   if (state === "idle" || state === "fail" || state === "result") {
-    beginWait();
-  } else if (state === "wait") {
-    handleFail();
-  } else if (state === "go") {
-    handleSuccess();
+    startGame();
+  } else if (state === "waiting") {
+    falseStart();
   }
+  // state === "playing" 인 경우 배경 탭은 무시 (원을 정확히 눌러야 함)
 }
 
 async function saveRecord(ms) {
@@ -94,7 +173,7 @@ async function saveRecord(ms) {
       });
     }
   } catch (e) {
-    showToast("기록 저장에 실패했어요 (Firebase 설정을 확인하세요)");
+    // 순위표 반영만 실패, 게임 결과 자체엔 영향 없음
   }
 }
 
@@ -119,7 +198,7 @@ export async function getAllTimeRanking() {
   }
 }
 
-// 메인 화면 "오늘의 기록" 티켓용 — 내 오늘 기록 + 대략적인 순위
+// 메인 화면 "오늘의 기록" 티켓용 — 내 오늘 평균 기록 + 대략적인 순위
 export async function getMySummaryToday() {
   const date = todayKey();
   const userId = getUserId();
@@ -149,8 +228,8 @@ export function shareReactionResult() {
     return;
   }
   shareText({
-    title: `⚡ 반응속도 ${fmtMs(lastResultMs)}`,
-    description: `오늘의 놀이터에서 ${Math.round(lastResultMs)}ms를 기록했어요!`,
+    title: `⚡ 반응속도 평균 ${fmtMs(lastResultMs)}`,
+    description: `오늘의 놀이터에서 5라운드 평균 ${Math.round(lastResultMs)}ms를 기록했어요!`,
     imageEmoji: "⚡",
   });
 }

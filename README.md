@@ -25,7 +25,7 @@ firestore.rules         Firestore 보안 규칙 (참고용)
 
 1. https://console.firebase.google.com 접속 → "프로젝트 추가"
 2. 프로젝트 생성 후 왼쪽 메뉴 **Firestore Database** → "데이터베이스 만들기" → 위치는 `asia-northeast3(서울)` 권장
-3. 처음엔 "테스트 모드"로 시작해도 되지만, 배포 전에는 이 프로젝트에 포함된 `firestore.rules` 내용을 Firestore > 규칙 탭에 붙여넣어 주세요.
+3. 처음엔 "테스트 모드"로 시작해도 되지만, 배포 전에는 이 프로젝트에 포함된 `firestore.rules` 내용을 Firestore > 규칙 탭에 붙여넣어 주세요. **테스트 모드 규칙은 30일 뒤 자동 만료되어 이후 모든 요청이 거부되니, 만료일 전에 꼭 교체해야 합니다.**
 4. 프로젝트 설정(⚙️) → "내 앱" → 웹 앱 추가(</> 아이콘) → 앱 닉네임 아무거나 입력 → **Firebase SDK 구성** 값 복사
 5. `js/firebase-config.js` 파일의 `firebaseConfig` 객체를 복사한 값으로 교체
 
@@ -61,16 +61,16 @@ npx serve .
 python3 -m http.server 5173
 ```
 
-## 4) 배포하기 (Firebase Hosting 예시)
+## 4) 배포하기 (GitHub Pages)
 
-```bash
-npm install -g firebase-tools
-firebase login
-firebase init hosting   # public 디렉터리를 프로젝트 루트로 지정, SPA 리라이트는 No 선택
-firebase deploy
-```
+1. 이 프로젝트 폴더를 새 GitHub 저장소에 푸시합니다. (index.html이 저장소 루트에 오도록 하세요)
+2. 저장소 **Settings → Pages** 로 이동
+3. "Build and deployment" → Source를 **Deploy from a branch** 로 설정, Branch는 `main` / `/(root)` 선택 후 저장
+4. 몇 분 뒤 `https://<사용자이름>.github.io/<저장소이름>/` 형태의 주소가 발급됩니다.
 
-배포된 URL이 카카오톡 공유 링크가 됩니다. 카카오 개발자 콘솔의 플랫폼 도메인도 이 주소로 등록해주세요.
+이 프로젝트의 모든 리소스 경로는 `./css/...`, `./js/...` 처럼 **상대 경로**로 되어 있어서, 루트 도메인이든 `/저장소이름/` 같은 하위 경로든 별도 수정 없이 그대로 동작합니다.
+
+> 카카오 공유를 연결했다면, 카카오 개발자 콘솔의 "플랫폼 → Web" 에 위에서 발급된 `https://사용자이름.github.io/저장소이름` 주소를 정확히 등록해야 공유 버튼이 정상 동작합니다.
 
 ## Firestore 데이터 구조
 

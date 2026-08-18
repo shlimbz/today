@@ -36,7 +36,7 @@ function renderNickname() {
 // ============================================================
 // 화면 전환
 // ============================================================
-const SCREEN_IDS = ["main", "reaction", "compat", "colorgame", "colorplay", "colorresult"];
+const SCREEN_IDS = ["main", "reaction", "compat", "colorgame", "colorpractice", "colorplay", "colorresult"];
 
 function showScreen(name) {
   if (currentScreen === "colorplay" && name !== "colorplay") {
@@ -51,6 +51,7 @@ function showScreen(name) {
   if (name === "reaction") Reaction.resetReactionScreen();
   if (name === "compat") resetCompatScreen();
   if (name === "colorgame") renderDiffSelect();
+  if (name === "colorpractice") renderPracticeSelect();
   if (name === "main") renderMainTicket();
 }
 
@@ -67,7 +68,7 @@ function bindGlobalNav() {
 function handleShareClick() {
   if (currentScreen === "reaction") Reaction.shareReactionResult();
   else if (currentScreen === "compat") Compat.shareCompatResult();
-  else if (currentScreen === "colorgame" || currentScreen === "colorplay" || currentScreen === "colorresult") ColorGame.shareColorResult();
+  else if (["colorgame", "colorpractice", "colorplay", "colorresult"].includes(currentScreen)) ColorGame.shareColorResult();
 }
 
 // ============================================================
@@ -91,6 +92,7 @@ async function renderMainTicket() {
   if (colorProgress.easy.bestMs != null) colorParts.push(`초${fmtSec(colorProgress.easy.bestMs)}`);
   if (colorProgress.normal.bestMs != null) colorParts.push(`중${fmtSec(colorProgress.normal.bestMs)}`);
   if (colorProgress.hard.bestMs != null) colorParts.push(`고${fmtSec(colorProgress.hard.bestMs)}`);
+  if (colorProgress.extreme.bestMs != null) colorParts.push(`익${fmtSec(colorProgress.extreme.bestMs)}`);
   const colorRow = colorParts.length
     ? `<span class="value">${colorParts.join(" · ")}</span>`
     : `<span class="value empty">아직 기록 없음</span>`;
@@ -176,7 +178,7 @@ async function renderDiffSelect() {
         showToast("오늘 도전 횟수를 모두 사용했어요 (3/3)");
         return;
       }
-      beginColorRound(cfg.key);
+      beginColorRound(cfg.key, "ranked");
     });
     wrap.appendChild(btn);
   });
@@ -191,19 +193,55 @@ async function renderDiffSelect() {
   }
 }
 
-function bindColorScreens() {
-  $id("colorPlayAgain").addEventListener("click", () => showScreen("colorgame"));
+function renderPracticeSelect() {
+  const wrap = $id("diffSelectPractice");
+  wrap.innerHTML = "";
+  Object.values(ColorGame.DIFFICULTIES).forEach((cfg) => {
+    const btn = document.createElement("button");
+    btn.className = "diff-card";
+    btn.type = "button";
+    btn.innerHTML = `
+      <div>
+        <div class="diff-name">${cfg.label} · ${cfg.grid}×${cfg.grid}</div>
+        <div class="diff-sub">제한시간 ${(cfg.timeLimitMs / 1000).toFixed(0)}초</div>
+      </div>
+      <div class="hearts">♾️ 무제한</div>
+    `;
+    btn.addEventListener("click", () => beginColorRound(cfg.key, "practice"));
+    wrap.appendChild(btn);
+  });
 }
 
-function beginColorRound(diffKey) {
+function bindColorScreens() {
+  $id("colorPlayAgain").addEventListener("click", () => {
+    if (currentColorMode === "practice") {
+      beginColorRound(currentColorDiff, "practice"); // 같은 난이도로 바로 재도전
+    } else {
+      showScreen("colorgame");
+    }
+  });
+  $id("colorPracticeExit").addEventListener("click", () => showScreen("colorpractice"));
+}
+
+let currentColorMode = "ranked";
+
+function setColorBackTargets() {
+  const target = currentColorMode === "practice" ? "colorpractice" : "colorgame";
+  $id("colorPlayBack").dataset.nav = target;
+  $id("colorResultBack").dataset.nav = target;
+}
+
+function beginColorRound(diffKey, mode) {
   currentColorDiff = diffKey;
+  currentColorMode = mode;
+  setColorBackTargets();
   const cfg = ColorGame.DIFFICULTIES[diffKey];
   showScreen("colorplay");
-  $id("colorPlayTitle").textContent = `🎨 틀린색상 찾기 · ${cfg.label}`;
+  $id("colorPlayTitle").textContent = `${mode === "practice" ? "🎯 연습" : "🎨"} · ${cfg.label}`;
 
   let cellEls = [];
 
-  const { colors, grid, timeLimitMs } = ColorGame.startRound(diffKey, {
+  const { colors, grid, timeLimitMs } = ColorGame.startRound(diffKey, mode, {
     onTick: (remainMs) => {
       const timerEl = $id("colorTimer");
       const sec = remainMs / 1000;
@@ -224,7 +262,7 @@ function beginColorRound(diffKey) {
     onEnd: (result) => renderColorResult(result),
   });
 
-  $id("colorPlayInfo").textContent = `${cfg.label} ${grid}×${grid}`;
+  $id("colorPlayInfo").textContent = `${cfg.label} ${grid}×${grid}${mode === "practice" ? " · 연습" : ""}`;
   $id("colorTimer").textContent = (timeLimitMs / 1000).toFixed(1);
   $id("colorTimer").classList.remove("warn");
 
@@ -249,11 +287,21 @@ function renderColorResult(result) {
   badge.className = `result-badge ${result.success ? "win" : "lose"}`;
   badge.textContent = result.success ? `🎉 성공! ${fmtSec(result.elapsedMs)}` : result.reason === "timeout" ? "⏰ 시간 초과!" : "❌ 다른 칸이었어요";
 
-  const remain = result.progress.maxAttempts - result.progress.attempts;
-  $id("colorResultPanel").innerHTML = `
-    <div class="ticket-row"><span class="label">${cfg.label} 오늘 최고 기록</span><span class="value">${result.progress.bestMs != null ? fmtSec(result.progress.bestMs) : "-"}</span></div>
-    <div class="ticket-row"><span class="label">남은 도전 횟수</span><span class="value">${Math.max(0, remain)}/${result.progress.maxAttempts}</span></div>
-  `;
+  if (result.mode === "practice") {
+    $id("colorResultPanel").innerHTML = `
+      <div class="ticket-row"><span class="label">${cfg.label} (연습)</span><span class="value">${fmtSec(result.elapsedMs)}</span></div>
+    `;
+    $id("colorPlayAgain").textContent = "다시 연습하기";
+    $id("colorPracticeExit").classList.remove("hidden");
+  } else {
+    const remain = result.progress.maxAttempts - result.progress.attempts;
+    $id("colorResultPanel").innerHTML = `
+      <div class="ticket-row"><span class="label">${cfg.label} 오늘 최고 기록</span><span class="value">${result.progress.bestMs != null ? fmtSec(result.progress.bestMs) : "-"}</span></div>
+      <div class="ticket-row"><span class="label">남은 도전 횟수</span><span class="value">${Math.max(0, remain)}/${result.progress.maxAttempts}</span></div>
+    `;
+    $id("colorPlayAgain").textContent = "다시 도전하기";
+    $id("colorPracticeExit").classList.add("hidden");
+  }
 }
 
 // ============================================================
@@ -349,6 +397,7 @@ async function openColorRanking() {
       <button class="tab-btn active" data-diff="easy" type="button">초급</button>
       <button class="tab-btn" data-diff="normal" type="button">중급</button>
       <button class="tab-btn" data-diff="hard" type="button">고급</button>
+      <button class="tab-btn" data-diff="extreme" type="button">익스트림</button>
       <button class="tab-btn" data-diff="total" type="button">종합</button>
     </div>
     <div id="rankBody"><span class="loading-spin"></span></div>`

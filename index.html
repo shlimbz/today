@@ -93,11 +93,15 @@
     </div>
 
     <div class="reaction-stage state-idle" id="reactionStage">
-      <div class="stage-msg" id="reactionMsg">탭해서 시작</div>
-      <div class="stage-sub" id="reactionSub">초록색으로 바뀌는 순간 화면을 터치하세요</div>
+      <div class="reaction-round-badge hidden" id="reactionRoundBadge">1/5</div>
+      <button class="reaction-target hidden" id="reactionTarget" type="button"></button>
+      <div class="stage-center" id="reactionCenter">
+        <div class="stage-msg" id="reactionMsg">탭해서 시작</div>
+        <div class="stage-sub" id="reactionSub">화면에 나타나는 원 5개를 최대한 빨리 터치하세요</div>
+      </div>
     </div>
 
-    <p class="hint" style="text-align:center; margin-top:14px;">색이 바뀌기 전에 누르면 탈락이에요. 3~10초 사이 무작위로 바뀝니다.</p>
+    <p class="hint" style="text-align:center; margin-top:14px;">원이 뜨기 전에 화면을 누르면 처음부터 다시 시작돼요. 5번의 평균 기록으로 순위가 매겨집니다.</p>
   </section>
 
   <!-- ============== 궁합 화면 ============== -->
@@ -131,13 +135,31 @@
       <h1>🎨 틀린색상 찾기</h1>
     </div>
     <div class="diff-select" id="diffSelect"></div>
-    <p class="hint" style="text-align:center; margin-top:14px;">난이도별 하루 3번, 성공/실패와 관계없이 1회씩 차감돼요.</p>
+    <button class="game-card colorgame" data-nav="colorpractice" type="button" style="margin-top:14px;">
+      <div class="icon">🎯</div>
+      <div>
+        <div class="title">연습모드</div>
+        <div class="desc">횟수 제한 없이 난이도별로 마음껏 연습해보세요</div>
+      </div>
+      <div class="chev">›</div>
+    </button>
+    <p class="hint" style="text-align:center; margin-top:14px;">난이도별 하루 3번, 성공/실패와 관계없이 1회씩 차감돼요. 같은 날엔 모두 같은 문제가 나와서 순위 비교가 공정해요.</p>
+  </section>
+
+  <!-- ============== 틀린색상 찾기: 연습모드 난이도 선택 ============== -->
+  <section id="screen-colorpractice" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="colorgame" type="button">‹</button>
+      <h1>🎯 연습모드</h1>
+    </div>
+    <div class="diff-select" id="diffSelectPractice"></div>
+    <p class="hint" style="text-align:center; margin-top:14px;">연습모드는 매번 완전히 새로운 무작위 문제이고, 기록은 저장·순위에 반영되지 않아요.</p>
   </section>
 
   <!-- ============== 틀린색상 찾기: 플레이 ============== -->
   <section id="screen-colorplay" class="screen hidden">
     <div class="screen-header">
-      <button class="back-btn" data-nav="colorgame" type="button">‹</button>
+      <button class="back-btn" id="colorPlayBack" data-nav="colorgame" type="button">‹</button>
       <h1 id="colorPlayTitle">🎨 틀린색상 찾기</h1>
     </div>
     <div class="color-hud">
@@ -150,12 +172,13 @@
   <!-- ============== 틀린색상 찾기: 결과 ============== -->
   <section id="screen-colorresult" class="screen hidden">
     <div class="screen-header">
-      <button class="back-btn" data-nav="colorgame" type="button">‹</button>
+      <button class="back-btn" id="colorResultBack" data-nav="colorgame" type="button">‹</button>
       <h1>결과</h1>
     </div>
     <div class="result-badge" id="colorResultBadge">성공!</div>
     <div class="panel" id="colorResultPanel"></div>
     <button class="btn primary colorgame" id="colorPlayAgain" type="button">다시 도전하기</button>
+    <button class="btn ghost hidden" id="colorPracticeExit" type="button" style="margin-top:10px;">연습 종료하고 난이도 선택으로</button>
   </section>
 
   <!-- ============== 하단 네비 (게임 화면에서만 노출) ============== -->

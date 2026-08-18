@@ -53,7 +53,8 @@ service cloud.firestore {
       allow read: if true;
       allow write: if request.resource.data.get('easyAttempts', 0) <= 3
                    && request.resource.data.get('normalAttempts', 0) <= 3
-                   && request.resource.data.get('hardAttempts', 0) <= 3;
+                   && request.resource.data.get('hardAttempts', 0) <= 3
+                   && request.resource.data.get('extremeAttempts', 0) <= 3;
     }
   }
 }
