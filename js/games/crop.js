@@ -295,8 +295,14 @@ export async function getTodayRanking() {
 }
 
 export async function getTodayTop1() {
-  const list = await getTodayRanking();
-  return list[0] || null;
+  const date = todayKey();
+  try {
+    const q = query(collection(db, "cropDaily", date, "records"), orderBy("profitPct", "desc"), limit(1));
+    const snaps = await withTimeout(getDocs(q), 4000);
+    return snaps && snaps.docs.length ? snaps.docs[0].data() : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 export function shareCropResult() {

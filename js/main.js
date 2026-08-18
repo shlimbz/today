@@ -514,12 +514,17 @@ function openNicknameModal() {
     ColorGame.setNickname(nickname);
     Crop.setNickname(nickname);
     renderNickname();
-    showToast("닉네임을 변경했어요!");
+    showToast("닉네임을 변경했어요! 순위표 반영 중…");
     close();
-    // 오늘 이미 저장된 순위 기록이 있다면 닉네임 표시도 함께 갱신 (실패해도 무시)
-    Reaction.refreshNicknameOnRecords();
-    ColorGame.refreshNicknameOnRecords();
-    Crop.refreshNicknameOnRecords();
+
+    // 오늘 이미 저장된 순위 기록이 있다면 닉네임 표시도 함께 갱신
+    await Promise.all([
+      Reaction.refreshNicknameOnRecords(),
+      ColorGame.refreshNicknameOnRecords(),
+      Crop.refreshNicknameOnRecords(),
+    ]);
+    // 메인 화면에 머물러 있었다면(=티켓이 옛 닉네임으로 이미 그려져 있었다면) 즉시 다시 그림
+    if (currentScreen === "main") renderMainTicket();
   });
 }
 

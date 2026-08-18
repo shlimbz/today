@@ -83,8 +83,14 @@ export async function getTodayCompatRanking() {
 }
 
 export async function getTodayBestCompatForTicket() {
-  const list = await getTodayCompatRanking();
-  return list[0] || null;
+  const date = todayKey();
+  try {
+    const q = query(collection(db, "compatDaily", date, "records"), orderBy("score", "desc"), limit(1));
+    const snaps = await withTimeout(getDocs(q), 3500);
+    return snaps && snaps.docs.length ? snaps.docs[0].data() : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 export function shareCompatResult() {

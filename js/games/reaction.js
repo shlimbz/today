@@ -267,8 +267,14 @@ export async function getTodayRanking() {
 }
 
 export async function getTodayTop1() {
-  const list = await getTodayRanking();
-  return list[0] || null;
+  const date = todayKey();
+  try {
+    const q = query(collection(db, "reactionDaily", date, "records"), orderBy("ms", "asc"), limit(1));
+    const snaps = await withTimeout(getDocs(q), 4000);
+    return snaps && snaps.docs.length ? snaps.docs[0].data() : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 export async function getAllTimeRanking() {
