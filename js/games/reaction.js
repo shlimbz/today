@@ -1,5 +1,5 @@
 import { db, doc, getDoc, setDoc, collection, query, orderBy, limit, where, getDocs, getCountFromServer, serverTimestamp } from "../firebase-config.js";
-import { todayKey, getUserId, showToast, shareText, fmtMs, withTimeout } from "../utils.js";
+import { todayKey, getUserId, showToast, shareText, fmtMs, withTimeout, spendStars, canAffordStars } from "../utils.js";
 
 const ROUNDS = 5;
 const TARGET_SIZE = 62; // css .reaction-target 기본 크기와 맞춰야 함
@@ -79,6 +79,8 @@ function hideCenter() {
   centerEl().classList.add("hidden");
 }
 
+export const PLAY_COST = 1;
+
 export function resetReactionScreen() {
   clearTimeout(spawnTimer);
   state = "idle";
@@ -87,10 +89,15 @@ export function resetReactionScreen() {
   setStageClass("idle");
   targetEl().classList.add("hidden");
   badgeEl().classList.add("hidden");
-  showCenter("탭해서 시작", "화면에 나타나는 원 5개를 최대한 빨리 터치하세요");
+  showCenter("탭해서 시작", `화면에 나타나는 원 5개를 최대한 빨리 터치하세요 · ⭐${PLAY_COST} 소모`);
 }
 
 function startGame() {
+  if (!canAffordStars(PLAY_COST)) {
+    showToast(`⭐ 별이 부족해요 (${PLAY_COST}개 필요)`);
+    return;
+  }
+  spendStars(PLAY_COST);
   clearTimeout(spawnTimer);
   state = "waiting";
   round = 0;

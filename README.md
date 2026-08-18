@@ -75,7 +75,7 @@ python3 -m http.server 5173
 ## Firestore 데이터 구조
 
 ```
-users/{userId}                        { nickname, emoji, createdAt }
+users/{userId}                        { nickname, emoji, createdAt, stars }
 nicknames/{nickname}                  { userId, claimedAt }            // 닉네임 중복 방지용
 
 reactionDaily/{date}/records/{userId} { userId, nickname, emoji, ms }  // 오늘자 개인 최고기록만 저장
@@ -85,11 +85,16 @@ compatDaily/{date}/records/{pairKey}  { nameA, nameB, score, typeBadge }  // pai
 
 colorDaily/{date}/records/{userId}    {
   nickname, emoji,
-  easyAttempts, normalAttempts, hardAttempts,   // 0~3
-  easyBestMs, normalBestMs, hardBestMs,         // 성공한 회차 중 최고기록
-  totalBestMs                                    // 세 난이도 모두 성공했을 때만 존재
+  easyAttempts, normalAttempts, hardAttempts, extremeAttempts,   // 0~3
+  easyBestMs, normalBestMs, hardBestMs, extremeBestMs,           // 성공한 회차 중 최고기록
+  totalBestMs                                                     // 네 난이도 모두 성공했을 때만 존재
 }
+
+cropDaily/{date}/records/{userId}     { userId, nickname, emoji, buyCost, sellRevenue, profitPct }
+                                       // "오늘의 무값!" 오늘 하루 실현 손익 기준 수익률 (첫 매도 전까진 기록 없음)
 ```
+
+⭐ 별(재화)은 `users/{userId}.stars` 에 참고용으로만 동기화되고, 실제 차감/지급 판단은 기기(localStorage)를 기준으로 즉시 처리됩니다. 최초 접속 시 10개, 매일(자정 KST 기준) 10개가 추가로 지급됩니다.
 
 `date`는 한국시간(KST) 기준 `yyyy-mm-dd` 문자열이며, 매일 새로운 문서 경로가 만들어지므로 자연스럽게 "일일 초기화"가 됩니다. 전체 누적 기록은 `reactionAllTime`처럼 날짜가 없는 컬렉션에 별도로 유지됩니다.
 

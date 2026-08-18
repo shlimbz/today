@@ -1,4 +1,4 @@
-import { db, doc, getDoc, setDoc } from "./firebase-config.js";
+import { db, doc, getDoc, setDoc, serverTimestamp } from "./firebase-config.js";
 
 // ------------------------------------------------------------
 // Firebase 설정이 아직 안 되어 있거나 네트워크가 느릴 때 화면이
@@ -158,6 +158,96 @@ export async function updateNickname(newNickname, emoji) {
   localStorage.setItem("playground_nickname", newNickname);
   localStorage.setItem("playground_nickname_emoji", emoji);
   return { ok: true };
+}
+
+// ------------------------------------------------------------
+// ⭐ 별 (공용 재화)
+//   - 최초 접속 시 10개 지급, 매일(자정 기준) 10개 추가 지급
+//     → 처음 접속한 날은 10+10=20개
+//   - 기기(localStorage)를 1차 저장소로 사용해 즉시 반응하고,
+//     Firestore users/{userId}.stars 에는 참고용으로만 동기화한다.
+// ------------------------------------------------------------
+const STARS_KEY = "playground_stars";
+const STARS_META_KEY = "playground_stars_meta"; // { signupBonusGiven, lastDailyGrant }
+
+export function getStars() {
+  const raw = localStorage.getItem(STARS_KEY);
+  return raw ? parseInt(raw, 10) || 0 : 0;
+}
+
+function setStarsRaw(n) {
+  const val = Math.max(0, Math.round(n));
+  localStorage.setItem(STARS_KEY, String(val));
+  syncStarsToFirestore(val);
+  return val;
+}
+
+export function addStars(n) {
+  return setStarsRaw(getStars() + n);
+}
+
+export function canAffordStars(n) {
+  return getStars() >= n;
+}
+
+// 성공 시 별을 차감하고 true, 부족하면 아무것도 하지 않고 false
+export function spendStars(n) {
+  const cur = getStars();
+  if (cur < n) return false;
+  setStarsRaw(cur - n);
+  return true;
+}
+
+// 앱 시작 시 1회 호출 — 지급된 별 개수(0이면 지급 없음)를 반환
+export function grantDailyStarsIfNeeded() {
+  let meta = {};
+  try {
+    meta = JSON.parse(localStorage.getItem(STARS_META_KEY) || "{}");
+  } catch (e) {
+    meta = {};
+  }
+  const today = todayKey();
+  let granted = 0;
+
+  if (!meta.signupBonusGiven) {
+    granted += 10;
+    meta.signupBonusGiven = true;
+  }
+  if (meta.lastDailyGrant !== today) {
+    granted += 10;
+    meta.lastDailyGrant = today;
+  }
+
+  localStorage.setItem(STARS_META_KEY, JSON.stringify(meta));
+  if (granted > 0) addStars(granted);
+  return granted;
+}
+
+async function syncStarsToFirestore(n) {
+  try {
+    await withTimeout(
+      setDoc(doc(db, "users", getUserId()), { stars: n, updatedAt: serverTimestamp() }, { merge: true }),
+      3000
+    );
+  } catch (e) {
+    /* 참고용 동기화 실패는 무시 — 게임 진행엔 영향 없음 */
+  }
+}
+
+// ------------------------------------------------------------
+// 시드 기반 결정적 난수 (같은 시드 → 항상 같은 결과)
+// ------------------------------------------------------------
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+export function makeSeededRng(seedStr) {
+  return mulberry32(djb2Hash(seedStr));
 }
 
 // ------------------------------------------------------------

@@ -1,7 +1,8 @@
-import { ensureNickname, updateNickname, todayLabel, showToast, fmtMs, fmtSec } from "./utils.js";
+import { ensureNickname, updateNickname, todayLabel, showToast, fmtMs, fmtSec, getStars, grantDailyStarsIfNeeded, canAffordStars, spendStars } from "./utils.js";
 import * as Reaction from "./games/reaction.js";
 import * as Compat from "./games/compat.js";
 import * as ColorGame from "./games/colormatch.js";
+import * as Crop from "./games/crop.js";
 
 let currentScreen = "main";
 let nickname = { nickname: "불러오는 중", emoji: "🐱" };
@@ -18,11 +19,17 @@ async function init() {
   bindReactionScreen();
   bindCompatScreen();
   bindColorScreens();
+  bindCropScreen();
 
   nickname = await ensureNickname();
   Reaction.setNickname(nickname);
   ColorGame.setNickname(nickname);
+  Crop.setNickname(nickname);
   renderNickname();
+
+  const granted = grantDailyStarsIfNeeded();
+  renderStars();
+  if (granted > 0) showToast(`⭐ 오늘의 별 +${granted}개 지급!`);
 
   await renderMainTicket();
   showScreen("main");
@@ -33,26 +40,35 @@ function renderNickname() {
   $id("nicknameLabel").textContent = nickname.nickname;
 }
 
+function renderStars() {
+  $id("starsBadge").textContent = `⭐ ${getStars()}`;
+}
+
 // ============================================================
 // 화면 전환
 // ============================================================
-const SCREEN_IDS = ["main", "reaction", "compat", "colorgame", "colorpractice", "colorplay", "colorresult"];
+const SCREEN_IDS = ["main", "reaction", "compat", "colorgame", "colorpractice", "colorplay", "colorresult", "crop"];
 
 function showScreen(name) {
   if (currentScreen === "colorplay" && name !== "colorplay") {
     ColorGame.cancelRound();
     practiceActive = false;
   }
+  if (currentScreen === "crop" && name !== "crop") {
+    stopCropTimer();
+  }
   currentScreen = name;
   for (const id of SCREEN_IDS) {
     $id(`screen-${id}`).classList.toggle("hidden", id !== name);
   }
   $id("bottomNav").classList.toggle("hidden", name === "main");
+  $id("app").classList.toggle("with-nav", name !== "main");
 
   if (name === "reaction") Reaction.resetReactionScreen();
   if (name === "compat") resetCompatScreen();
   if (name === "colorgame") renderDiffSelect();
   if (name === "colorpractice") renderPracticeSelect();
+  if (name === "crop") startCropScreen();
   if (name === "main") renderMainTicket();
 }
 
@@ -70,52 +86,52 @@ function handleShareClick() {
   if (currentScreen === "reaction") Reaction.shareReactionResult();
   else if (currentScreen === "compat") Compat.shareCompatResult();
   else if (["colorgame", "colorpractice", "colorplay", "colorresult"].includes(currentScreen)) ColorGame.shareColorResult();
+  else if (currentScreen === "crop") Crop.shareCropResult();
 }
 
 // ============================================================
 // 메인 화면 티켓
 // ============================================================
+// ============================================================
+// 메인 화면 티켓
+// ============================================================
+function recordLine(icon, label, top, valueText) {
+  if (!top) {
+    return `<div class="ticket-row"><span class="label">${icon} ${label}</span><span class="value empty">아직 기록 없음</span></div>`;
+  }
+  return `<div class="ticket-row"><span class="label">${icon} ${label}</span><span class="value">${valueText} <span style="color:var(--text-faint); font-size:10.5px;">${top.emoji || "🙂"}${top.nickname || "익명"}</span></span></div>`;
+}
+
 async function renderMainTicket() {
   $id("ticketDate").textContent = todayLabel();
   const rows = $id("ticketRows");
 
-  const [reactionSummary, colorProgress, bestCompat, reactionTop, colorTop] = await Promise.all([
-    Reaction.getMySummaryToday(),
-    ColorGame.getMyProgress(),
-    Compat.getTodayBestCompatForTicket(),
+  const [reactionTop, easyTop, normalTop, hardTop, extremeTop, bestCompat, cropTop] = await Promise.all([
     Reaction.getTodayTop1(),
-    ColorGame.getTodayTop1Total(),
+    ColorGame.getTodayTop1("easy"),
+    ColorGame.getTodayTop1("normal"),
+    ColorGame.getTodayTop1("hard"),
+    ColorGame.getTodayTop1("extreme"),
+    Compat.getTodayBestCompatForTicket(),
+    Crop.getTodayTop1(),
   ]);
 
-  const reactionRow = reactionSummary
-    ? `<span class="value">${fmtMs(reactionSummary.ms)}${reactionSummary.rank ? ` <span style="color:var(--text-faint); font-size:11px;">(${reactionSummary.rank}/${reactionSummary.total}위)</span>` : ""}</span>`
-    : `<span class="value empty">아직 기록 없음</span>`;
-  const reactionTopLine = reactionTop
-    ? `<div class="ticket-subrow">🥇 오늘 1위 ${reactionTop.emoji || "🙂"} ${reactionTop.nickname || "익명"} · ${fmtMs(reactionTop.ms)}</div>`
-    : "";
-
-  const colorParts = [];
-  if (colorProgress.easy.bestMs != null) colorParts.push(`초${fmtSec(colorProgress.easy.bestMs)}`);
-  if (colorProgress.normal.bestMs != null) colorParts.push(`중${fmtSec(colorProgress.normal.bestMs)}`);
-  if (colorProgress.hard.bestMs != null) colorParts.push(`고${fmtSec(colorProgress.hard.bestMs)}`);
-  if (colorProgress.extreme.bestMs != null) colorParts.push(`익${fmtSec(colorProgress.extreme.bestMs)}`);
-  const colorRow = colorParts.length
-    ? `<span class="value">${colorParts.join(" · ")}</span>`
-    : `<span class="value empty">아직 기록 없음</span>`;
-  const colorTopLine = colorTop
-    ? `<div class="ticket-subrow">🥇 종합 1위 ${colorTop.emoji || "🙂"} ${colorTop.nickname || "익명"} · ${fmtSec(colorTop.totalBestMs)}</div>`
-    : "";
-
   const compatRow = bestCompat
-    ? `<span class="value">${bestCompat.nameA}❤️${bestCompat.nameB} ${bestCompat.score}점</span>`
-    : `<span class="value empty">아직 기록 없음</span>`;
+    ? `<div class="ticket-row"><span class="label">💕 베스트 궁합</span><span class="value">${bestCompat.nameA}❤️${bestCompat.nameB} <span style="color:var(--text-faint); font-size:10.5px;">${bestCompat.score}점</span></span></div>`
+    : `<div class="ticket-row"><span class="label">💕 베스트 궁합</span><span class="value empty">아직 기록 없음</span></div>`;
+
+  const cropRow = cropTop
+    ? `<div class="ticket-row"><span class="label">🥬 오늘의 무값!</span><span class="value">${cropTop.profitPct >= 0 ? "+" : ""}${cropTop.profitPct.toFixed(1)}% <span style="color:var(--text-faint); font-size:10.5px;">${cropTop.emoji || "🙂"}${cropTop.nickname || "익명"}</span></span></div>`
+    : `<div class="ticket-row"><span class="label">🥬 오늘의 무값!</span><span class="value empty">아직 기록 없음</span></div>`;
 
   rows.innerHTML = `
-    <div class="ticket-row"><span class="label">⚡ 반응속도</span>${reactionRow}</div>
-    ${reactionTopLine}
-    <div class="ticket-row"><span class="label">🎨 틀린색상</span>${colorRow}</div>
-    ${colorTopLine}
-    <div class="ticket-row"><span class="label">💕 베스트 궁합</span>${compatRow}</div>
+    ${recordLine("⚡", "반응속도", reactionTop, reactionTop ? fmtMs(reactionTop.ms) : "")}
+    ${recordLine("🎨", "초급", easyTop, easyTop ? fmtSec(easyTop.easyBestMs) : "")}
+    ${recordLine("🎨", "중급", normalTop, normalTop ? fmtSec(normalTop.normalBestMs) : "")}
+    ${recordLine("🎨", "고급", hardTop, hardTop ? fmtSec(hardTop.hardBestMs) : "")}
+    ${recordLine("🎨", "익스트림", extremeTop, extremeTop ? fmtSec(extremeTop.extremeBestMs) : "")}
+    ${compatRow}
+    ${cropRow}
   `;
 }
 
@@ -125,6 +141,7 @@ async function renderMainTicket() {
 function bindReactionScreen() {
   $id("reactionStage").addEventListener("click", () => {
     Reaction.handleStageTap();
+    renderStars();
   });
   $id("reactionSettingsBtn").addEventListener("click", (e) => {
     e.stopPropagation();
@@ -154,11 +171,18 @@ function bindCompatScreen() {
   $id("compatSubmit").addEventListener("click", () => {
     const a = $id("compatNameA").value;
     const b = $id("compatNameB").value;
-    const result = Compat.computeCompat(a, b);
-    if (result.error) {
-      showToast(result.error);
+    const valid = Compat.validateNames(a, b);
+    if (valid.error) {
+      showToast(valid.error);
       return;
     }
+    if (!canAffordStars(Compat.CHECK_COST)) {
+      showToast(`⭐ 별이 부족해요 (${Compat.CHECK_COST}개 필요)`);
+      return;
+    }
+    spendStars(Compat.CHECK_COST);
+    renderStars();
+    const result = Compat.computeCompat(valid.nameA, valid.nameB);
     $id("compatForm").classList.add("hidden");
     const panel = $id("compatResultPanel");
     panel.classList.remove("hidden");
@@ -364,6 +388,7 @@ function renderColorResult(result) {
 async function openRankingModal() {
   if (currentScreen === "reaction") return openReactionRanking();
   if (currentScreen === "compat") return openCompatRanking();
+  if (currentScreen === "crop") return openCropRanking();
   return openColorRanking();
 }
 
@@ -491,10 +516,129 @@ function openNicknameModal() {
     nickname = { nickname: val, emoji: nickname.emoji };
     Reaction.setNickname(nickname);
     ColorGame.setNickname(nickname);
+    Crop.setNickname(nickname);
     renderNickname();
     showToast("닉네임을 변경했어요!");
     close();
   });
+}
+
+// ============================================================
+// 🥬 오늘의 무값! (농작물 거래)
+// ============================================================
+let cropTimerId = null;
+const cropQty = {}; // cropKey -> 현재 입력된 수량
+
+function startCropScreen() {
+  Crop.CROPS.forEach((c) => { if (!(c.key in cropQty)) cropQty[c.key] = 1; });
+  renderCropList();
+  renderCropSummary();
+  clearInterval(cropTimerId);
+  let lastTick = Crop.getCurrentTick();
+  cropTimerId = setInterval(() => {
+    const remain = Crop.msUntilNextTick();
+    const mm = Math.floor(remain / 60000);
+    const ss = Math.floor((remain % 60000) / 1000);
+    $id("cropCountdown").textContent = `${mm}:${String(ss).padStart(2, "0")}`;
+    const tick = Crop.getCurrentTick();
+    if (tick !== lastTick) {
+      lastTick = tick;
+      renderCropList();
+      renderCropSummary();
+    }
+  }, 1000);
+}
+
+function stopCropTimer() {
+  clearInterval(cropTimerId);
+  cropTimerId = null;
+}
+
+function renderCropSummary() {
+  const { profitPct } = Crop.getTodayStats();
+  const el = $id("cropProfit");
+  if (profitPct == null) {
+    el.textContent = "아직 거래 없음";
+    el.style.color = "var(--text-faint)";
+  } else {
+    const sign = profitPct >= 0 ? "+" : "";
+    el.textContent = `${sign}${profitPct.toFixed(1)}%`;
+    el.style.color = profitPct >= 0 ? "var(--success)" : "var(--danger)";
+  }
+}
+
+function renderCropList() {
+  const wrap = $id("cropList");
+  const inv = Crop.getInventory();
+  const tick = Crop.getCurrentTick();
+  wrap.innerHTML = "";
+
+  Crop.CROPS.forEach((c) => {
+    const price = Crop.getPrice(c.key, tick);
+    const prevPrice = tick > 0 ? Crop.getPrice(c.key, tick - 1) : price;
+    const trendClass = price > prevPrice ? "crop-trend-up" : price < prevPrice ? "crop-trend-down" : "crop-trend-flat";
+    const trendIcon = price > prevPrice ? "▲" : price < prevPrice ? "▼" : "―";
+    const owned = inv[c.key] || 0;
+
+    const row = document.createElement("div");
+    row.className = "crop-row";
+    row.innerHTML = `
+      <div class="crop-row-top">
+        <span class="crop-row-name">${c.emoji} ${c.label}</span>
+        <span class="crop-row-price ${trendClass}">${trendIcon} ⭐${price}</span>
+      </div>
+      <div class="crop-row-sub">보유 ${owned}개 · 가치 ⭐${owned * price}</div>
+      <div class="crop-row-controls">
+        <input type="number" min="1" value="${cropQty[c.key]}" class="crop-qty" data-crop="${c.key}" />
+        <button class="crop-btn buy" data-action="buy" data-crop="${c.key}" type="button">구매</button>
+        <button class="crop-btn sell" data-action="sell" data-crop="${c.key}" type="button" ${owned <= 0 ? "disabled" : ""}>판매</button>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+
+  wrap.querySelectorAll(".crop-qty").forEach((input) => {
+    input.addEventListener("change", () => {
+      const key = input.dataset.crop;
+      const v = Math.max(1, parseInt(input.value, 10) || 1);
+      cropQty[key] = v;
+      input.value = v;
+    });
+  });
+  wrap.querySelectorAll(".crop-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.crop;
+      const qty = cropQty[key] || 1;
+      if (btn.dataset.action === "buy") {
+        const res = Crop.buyCrop(key, qty);
+        if (!res.ok) {
+          showToast(`⭐ 별이 부족해요 (${res.cost}개 필요)`);
+          return;
+        }
+        showToast(`${qty}개 구매! ⭐${res.cost} 사용`);
+      } else {
+        const res = Crop.sellCrop(key, qty);
+        if (!res.ok) {
+          showToast("보유한 수량보다 많이 팔 수 없어요");
+          return;
+        }
+        showToast(`${qty}개 판매! ⭐${res.revenue} 획득`);
+      }
+      renderStars();
+      renderCropList();
+      renderCropSummary();
+    });
+  });
+}
+
+function bindCropScreen() {
+  // 리스트/버튼은 매 렌더링마다 동적으로 바인딩됨 (renderCropList 참고)
+}
+
+async function openCropRanking() {
+  const { root } = modalShell("🏆 오늘의 무값! 수익률 순위", `<div id="rankBody"><span class="loading-spin"></span></div>`);
+  const list = await Crop.getTodayRanking();
+  root.querySelector("#rankBody").innerHTML = rankListHtml(list, (item) => `${item.profitPct >= 0 ? "+" : ""}${item.profitPct.toFixed(1)}%`);
 }
 
 init();

@@ -56,5 +56,13 @@ service cloud.firestore {
                    && request.resource.data.get('hardAttempts', 0) <= 3
                    && request.resource.data.get('extremeAttempts', 0) <= 3;
     }
+
+    // 오늘의 무값! (농작물 거래) - 일일 실현 손익 (문서 ID = userId)
+    match /cropDaily/{date}/records/{userId} {
+      allow read: if true;
+      allow write: if request.resource.data.buyCost is number
+                   && request.resource.data.sellRevenue is number
+                   && request.resource.data.profitPct is number;
+    }
   }
 }

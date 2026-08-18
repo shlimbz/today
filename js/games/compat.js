@@ -27,12 +27,18 @@ function sanitizeName(name) {
 
 let lastResult = null;
 
-export function computeCompat(nameARaw, nameBRaw) {
+export const CHECK_COST = 1;
+
+// 별 소모 전에 먼저 이름만 검증 (검증 실패 시엔 별을 쓰지 않기 위해 분리)
+export function validateNames(nameARaw, nameBRaw) {
   const nameA = sanitizeName(nameARaw);
   const nameB = sanitizeName(nameBRaw);
   if (!nameA || !nameB) return { error: "이름 두 개를 모두 입력해주세요" };
   if (nameA.toLowerCase() === nameB.toLowerCase()) return { error: "서로 다른 이름을 입력해주세요" };
+  return { nameA, nameB };
+}
 
+export function computeCompat(nameA, nameB) {
   const sorted = [nameA, nameB].sort((a, b) => a.localeCompare(b, "ko"));
   const date = todayKey();
   const key = `${date}|${sorted[0]}|${sorted[1]}`;

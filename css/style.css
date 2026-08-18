@@ -20,6 +20,8 @@
   --compat-ink: #4a0620;
   --colorgame: #14b8a6;
   --colorgame-ink: #00312c;
+  --crop: #65a30d;
+  --crop-ink: #0f2400;
 
   --success: #1fae64;
   --success-soft: #e4f9ee;
@@ -66,6 +68,9 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   position: relative;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+#app.with-nav {
   padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
@@ -106,6 +111,14 @@ p { margin: 0; }
   font-size: 20px;
   color: var(--text);
 }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.stars-badge {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 12px;
+  font-family: var(--font-display); font-size: 13px; color: var(--text);
+  box-shadow: var(--shadow-card);
+}
 .topbar .nickname-pill {
   display: flex;
   align-items: center;
@@ -122,11 +135,11 @@ p { margin: 0; }
 
 /* ---------- 오늘의 티켓 (시그니처) ---------- */
 .ticket {
-  margin: 10px 20px 22px;
+  margin: 8px 20px 14px;
   position: relative;
   background: var(--surface);
   border-radius: var(--radius-lg);
-  padding: 22px 22px 18px;
+  padding: 16px 20px 14px;
   border: 1px solid var(--line);
   box-shadow: var(--shadow-pop);
 }
@@ -146,7 +159,7 @@ p { margin: 0; }
 .ticket::after { right: -12px; }
 .ticket .ticket-divider {
   border-top: 2px dashed var(--surface-3);
-  margin: 16px 0;
+  margin: 10px 0;
 }
 .ticket-head {
   display: flex;
@@ -154,46 +167,49 @@ p { margin: 0; }
   justify-content: space-between;
 }
 .ticket-head .eyebrow {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-faint);
   letter-spacing: 1.5px;
 }
 .ticket-head h2 {
-  font-size: 22px;
-  margin-top: 4px;
+  font-size: 18px;
+  margin-top: 2px;
 }
 .ticket-date {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
   background: var(--surface-2);
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
 }
-.ticket-rows { display: flex; flex-direction: column; gap: 10px; }
+.ticket-rows { display: flex; flex-direction: column; gap: 5px; }
 .ticket-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 12.5px;
+  min-height: 18px;
 }
-.ticket-row .label { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
-.ticket-row .value { font-family: var(--font-display); font-size: 16px; color: var(--text); }
-.ticket-row .value.empty { font-family: var(--font-body); font-size: 13px; color: var(--text-faint); }
+.ticket-row .label { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+.ticket-row .value { font-family: var(--font-display); font-size: 13.5px; color: var(--text); }
+.ticket-row .value.empty { font-family: var(--font-body); font-size: 12px; color: var(--text-faint); }
 .ticket-subrow {
-  font-size: 11px; color: var(--text-faint);
-  margin-top: -4px; padding-left: 2px;
+  font-size: 10.5px; color: var(--text-faint);
+  padding-left: 2px;
 }
+.ticket-group { padding: 3px 0 5px; border-bottom: 1px dashed var(--surface-3); }
+.ticket-group:last-child { border-bottom: none; }
 
 /* ---------- 게임 카드 목록 ---------- */
-.game-list { padding: 0 20px; display: flex; flex-direction: column; gap: 14px; }
+.game-list { padding: 0 20px; display: flex; flex-direction: column; gap: 8px; }
 .game-card {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 16px 18px;
+  padding: 11px 16px;
   text-align: left;
   width: 100%;
   box-shadow: var(--shadow-card);
@@ -201,15 +217,15 @@ p { margin: 0; }
 }
 .game-card:active { transform: scale(0.98); }
 .game-card .icon {
-  width: 52px; height: 52px; border-radius: 16px;
+  width: 38px; height: 38px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; flex-shrink: 0;
+  font-size: 19px; flex-shrink: 0;
 }
 .game-card.reaction .icon { background: var(--reaction); color: var(--reaction-ink); }
 .game-card.compat .icon { background: var(--compat); color: #fff; }
 .game-card.colorgame .icon { background: var(--colorgame); color: #fff; }
-.game-card .title { font-family: var(--font-display); font-size: 17px; color: var(--text); }
-.game-card .desc { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+.game-card.crop .icon { background: var(--crop); color: #fff; }
+.game-card .title { font-family: var(--font-display); font-size: 15px; color: var(--text); }
 .game-card .chev { margin-left: auto; color: var(--text-faint); font-size: 20px; }
 
 /* ---------- 화면 공통 ---------- */
@@ -397,7 +413,33 @@ p { margin: 0; }
 .result-badge.win { background: var(--success-soft); color: var(--success); border-color: rgba(31,174,100,0.25); }
 .result-badge.lose { background: var(--danger-soft); color: var(--danger); border-color: rgba(229,72,77,0.25); }
 
-/* ---------- 순위 ---------- */
+/* ---------- 오늘의 무값! (농작물 거래) ---------- */
+.crop-list { display: flex; flex-direction: column; gap: 10px; }
+.crop-row {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-md); padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+}
+.crop-row-top { display: flex; align-items: center; justify-content: space-between; }
+.crop-row-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 15px; color: var(--text); }
+.crop-row-price { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 16px; }
+.crop-trend-up { color: var(--success); }
+.crop-trend-down { color: var(--danger); }
+.crop-trend-flat { color: var(--text-faint); }
+.crop-row-sub { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
+.crop-row-controls { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.crop-qty {
+  width: 52px; text-align: center;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 8px 4px; font-size: 14px; color: var(--text);
+}
+.crop-btn {
+  flex: 1; padding: 9px 0; border-radius: var(--radius-sm);
+  font-family: var(--font-display); font-size: 13.5px;
+}
+.crop-btn.buy { background: var(--crop); color: #fff; }
+.crop-btn.sell { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+.crop-btn:disabled { opacity: 0.4; }
 .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .tab-btn {
   flex: 1; min-width: 70px; padding: 10px; border-radius: var(--radius-sm);

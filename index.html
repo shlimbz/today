@@ -27,11 +27,14 @@
   <!-- ============== 상단 바 ============== -->
   <header class="topbar">
     <div class="brand">🎪 오늘의 놀이터</div>
-    <button class="nickname-pill" id="nicknameBtn" type="button">
-      <span id="nicknameEmoji">🐱</span>
-      <span id="nicknameLabel">불러오는 중</span>
-      <span>✏️</span>
-    </button>
+    <div class="topbar-right">
+      <div class="stars-badge" id="starsBadge">⭐ 0</div>
+      <button class="nickname-pill" id="nicknameBtn" type="button">
+        <span id="nicknameEmoji">🐱</span>
+        <span id="nicknameLabel">불러오는 중</span>
+        <span>✏️</span>
+      </button>
+    </div>
   </header>
 
   <!-- ============== 메인 화면 ============== -->
@@ -47,42 +50,35 @@
       </div>
       <div class="ticket-divider"></div>
       <div class="ticket-rows" id="ticketRows">
-        <div class="ticket-row"><span class="label">⚡ 반응속도</span><span class="value empty">아직 기록 없음</span></div>
-        <div class="ticket-row"><span class="label">🎨 틀린색상</span><span class="value empty">아직 기록 없음</span></div>
-        <div class="ticket-row"><span class="label">💕 베스트 궁합</span><span class="value empty">아직 기록 없음</span></div>
+        <div class="ticket-row"><span class="label">불러오는 중…</span></div>
       </div>
     </section>
 
     <nav class="game-list">
       <button class="game-card reaction" data-nav="reaction" type="button">
         <div class="icon">⚡</div>
-        <div>
-          <div class="title">반응속도 측정</div>
-          <div class="desc">색이 바뀌는 순간 얼마나 빨리 누를 수 있나요?</div>
-        </div>
+        <div class="title">반응속도 측정</div>
         <div class="chev">›</div>
       </button>
 
       <button class="game-card compat" data-nav="compat" type="button">
         <div class="icon">💕</div>
-        <div>
-          <div class="title">오늘의 친구 궁합</div>
-          <div class="desc">이름 두 개로 오늘의 궁합을 확인해보세요</div>
-        </div>
+        <div class="title">오늘의 친구 궁합</div>
         <div class="chev">›</div>
       </button>
 
       <button class="game-card colorgame" data-nav="colorgame" type="button">
         <div class="icon">🎨</div>
-        <div>
-          <div class="title">틀린색상 찾기</div>
-          <div class="desc">난이도별 하루 3번, 미묘한 색 차이를 찾아라</div>
-        </div>
+        <div class="title">틀린색상 찾기</div>
+        <div class="chev">›</div>
+      </button>
+
+      <button class="game-card crop" data-nav="crop" type="button">
+        <div class="icon">🥬</div>
+        <div class="title">오늘의 무값!</div>
         <div class="chev">›</div>
       </button>
     </nav>
-
-    <p class="hint" style="text-align:center; margin: 20px 0 4px;">모든 기록은 매일 자정 초기화됩니다 🌙</p>
   </main>
 
   <!-- ============== 반응속도 화면 ============== -->
@@ -115,7 +111,7 @@
     <div class="panel" id="compatForm">
       <input class="field" id="compatNameA" type="text" placeholder="첫 번째 이름" maxlength="10" />
       <input class="field" id="compatNameB" type="text" placeholder="두 번째 이름" maxlength="10" />
-      <button class="btn primary compat" id="compatSubmit" type="button">궁합 확인하기</button>
+      <button class="btn primary compat" id="compatSubmit" type="button">궁합 확인하기 · ⭐1</button>
     </div>
 
     <div class="panel hidden" id="compatResultPanel">
@@ -138,10 +134,7 @@
     <div class="diff-select" id="diffSelect"></div>
     <button class="game-card colorgame" data-nav="colorpractice" type="button" style="margin-top:14px;">
       <div class="icon">🎯</div>
-      <div>
-        <div class="title">연습모드</div>
-        <div class="desc">횟수 제한 없이 난이도별로 마음껏 연습해보세요</div>
-      </div>
+      <div class="title">연습모드 (무제한)</div>
       <div class="chev">›</div>
     </button>
     <p class="hint" style="text-align:center; margin-top:14px;">난이도별 하루 3번, 성공/실패와 관계없이 1회씩 차감돼요. 같은 날엔 모두 같은 문제가 나와서 순위 비교가 공정해요.</p>
@@ -180,6 +173,20 @@
     <div class="result-badge" id="colorResultBadge">성공!</div>
     <div class="panel" id="colorResultPanel"></div>
     <button class="btn primary colorgame" id="colorPlayAgain" type="button">다시 도전하기</button>
+  </section>
+
+  <!-- ============== 오늘의 무값! (농작물 거래) ============== -->
+  <section id="screen-crop" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="main" type="button">‹</button>
+      <h1>🥬 오늘의 무값!</h1>
+    </div>
+    <div class="crop-summary panel">
+      <div class="ticket-row"><span class="label">다음 시세 변동까지</span><span class="value" id="cropCountdown">5:00</span></div>
+      <div class="ticket-row"><span class="label">오늘 수익률</span><span class="value" id="cropProfit">-</span></div>
+    </div>
+    <div class="crop-list" id="cropList"></div>
+    <p class="hint" style="text-align:center; margin-top:10px;">가격은 5분마다 바뀌어요. 싸게 사서 비싸게 팔아보세요!</p>
   </section>
 
   <!-- ============== 하단 네비 (게임 화면에서만 노출) ============== -->

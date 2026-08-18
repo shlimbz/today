@@ -256,6 +256,11 @@ export async function getTodayTotalRanking() {
   }
 }
 
+export async function getTodayTop1(diffKey) {
+  const list = await getTodayRanking(diffKey);
+  return list[0] || null;
+}
+
 export async function getTodayTop1Total() {
   const list = await getTodayTotalRanking();
   return list[0] || null;
