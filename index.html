@@ -11,6 +11,16 @@
 <meta property="og:description" content="반응속도 · 궁합 · 틀린색상 찾기, 오늘의 기록에 도전해보세요" />
 <meta property="og:type" content="website" />
 
+<!-- 다크모드 깜빡임 방지: CSS가 적용되기 전에 저장된 테마를 먼저 반영 -->
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('playground_theme');
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  } catch (e) {}
+})();
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
@@ -28,6 +38,7 @@
   <header class="topbar">
     <div class="brand">🎪 오늘의 놀이터</div>
     <div class="topbar-right">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="다크모드 전환">🌙</button>
       <div class="stars-badge" id="starsBadge">⭐ 0</div>
       <button class="nickname-pill" id="nicknameBtn" type="button">
         <span id="nicknameEmoji">🐱</span>
@@ -181,11 +192,24 @@
       <button class="back-btn" data-nav="main" type="button">‹</button>
       <h1>🫜 오늘의 무값!</h1>
     </div>
-    <div class="crop-summary panel">
-      <div class="ticket-row"><span class="label">다음 시세 변동까지</span><span class="value" id="cropCountdown">5:00</span></div>
-      <div class="ticket-row"><span class="label">오늘 수익률</span><span class="value" id="cropProfit">-</span></div>
-      <div class="hint" id="cropHoldingsInfo" style="margin-top:6px;">보유 평가액 ⭐0 · 누적 매수 ⭐0 · 누적 매도 ⭐0</div>
+
+    <div class="crop-asset-card panel">
+      <div class="crop-asset-label">내 자산 (현금 + 보유평가)</div>
+      <div class="crop-asset-total" id="cropTotalAssets">⭐0</div>
+      <div class="crop-pl-line flat" id="cropProfit">아직 거래 없음</div>
+      <div class="crop-countdown-row">
+        <span>⏱ 다음 시세 변동까지</span>
+        <span id="cropCountdown">5:00</span>
+      </div>
+      <div class="hint" id="cropHoldingsInfo" style="margin-top:8px;">현금 ⭐0 · 보유평가 ⭐0 · 누적매수 ⭐0 · 누적매도 ⭐0</div>
     </div>
+
+    <h3 class="section-title">📦 보유 종목</h3>
+    <div class="crop-positions" id="cropPositions">
+      <p class="hint" style="text-align:center; padding:10px 0;">아직 보유 중인 작물이 없어요</p>
+    </div>
+
+    <h3 class="section-title">🏪 오늘의 시세</h3>
     <div class="crop-list" id="cropList"></div>
     <p class="hint" style="text-align:center; margin-top:10px;">가격은 5분마다 바뀌어요. 싸게 사서 비싸게 팔아보세요!</p>
   </section>

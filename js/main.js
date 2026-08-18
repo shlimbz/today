@@ -79,6 +79,25 @@ function bindGlobalNav() {
   $id("nicknameBtn").addEventListener("click", openNicknameModal);
   $id("navRank").addEventListener("click", openRankingModal);
   $id("navShare").addEventListener("click", handleShareClick);
+  $id("themeToggle").addEventListener("click", toggleTheme);
+  renderThemeToggleIcon();
+}
+
+function renderThemeToggleIcon() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  $id("themeToggle").textContent = isDark ? "☀️" : "🌙";
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  if (isDark) {
+    document.documentElement.removeAttribute("data-theme");
+    localStorage.setItem("playground_theme", "light");
+  } else {
+    document.documentElement.setAttribute("data-theme", "dark");
+    localStorage.setItem("playground_theme", "dark");
+  }
+  renderThemeToggleIcon();
 }
 
 function handleShareClick() {
@@ -569,17 +588,50 @@ function stopCropTimer() {
 }
 
 function renderCropSummary() {
-  const { profitPct, buyCost, holdingsValue, sellRevenue } = Crop.getTodayStats();
-  const el = $id("cropProfit");
+  const { profitPct, profitAmount, buyCost, holdingsValue, sellRevenue } = Crop.getTodayStats();
+  const cash = getStars();
+  const totalAssets = cash + holdingsValue;
+
+  $id("cropTotalAssets").textContent = `⭐${totalAssets.toLocaleString()}`;
+
+  const plEl = $id("cropProfit");
   if (profitPct == null) {
-    el.textContent = "아직 거래 없음";
-    el.style.color = "var(--text-faint)";
+    plEl.textContent = "아직 거래 없음";
+    plEl.className = "crop-pl-line flat";
   } else {
-    const sign = profitPct >= 0 ? "+" : "";
-    el.textContent = `${sign}${profitPct.toFixed(1)}%`;
-    el.style.color = profitPct >= 0 ? "var(--success)" : "var(--danger)";
+    const sign = profitAmount >= 0 ? "+" : "";
+    plEl.textContent = `${sign}⭐${Math.round(profitAmount).toLocaleString()} (${sign}${profitPct.toFixed(1)}%)`;
+    plEl.className = `crop-pl-line ${profitAmount >= 0 ? "up" : "down"}`;
   }
-  $id("cropHoldingsInfo").textContent = `보유 평가액 ⭐${holdingsValue} · 누적 매수 ⭐${buyCost} · 누적 매도 ⭐${sellRevenue}`;
+  $id("cropHoldingsInfo").textContent = `현금 ⭐${cash.toLocaleString()} · 보유평가 ⭐${holdingsValue.toLocaleString()} · 누적매수 ⭐${buyCost.toLocaleString()} · 누적매도 ⭐${sellRevenue.toLocaleString()}`;
+
+  renderCropPositions();
+}
+
+function renderCropPositions() {
+  const wrap = $id("cropPositions");
+  const positions = Crop.getPositions();
+  if (positions.length === 0) {
+    wrap.innerHTML = `<p class="hint" style="text-align:center; padding:10px 0;">아직 보유 중인 작물이 없어요</p>`;
+    return;
+  }
+  wrap.innerHTML = positions
+    .map((p) => {
+      const sign = p.plAmount >= 0 ? "+" : "";
+      const dir = p.plAmount >= 0 ? "up" : "down";
+      return `
+        <div class="position-row">
+          <div class="position-left">
+            <span class="position-name">${p.crop.emoji} ${p.crop.label}</span>
+            <span class="position-sub">${p.qty}개 · 평단 ⭐${p.avgCost.toFixed(1)}</span>
+          </div>
+          <div class="position-right">
+            <span class="position-value">⭐${p.evalValue.toLocaleString()}</span>
+            <span class="position-pl ${dir}">${sign}⭐${Math.round(p.plAmount).toLocaleString()} (${sign}${p.plPct.toFixed(1)}%)</span>
+          </div>
+        </div>`;
+    })
+    .join("");
 }
 
 function renderCropList() {
@@ -595,7 +647,7 @@ function renderCropList() {
     const trendClass = diff > 0 ? "crop-trend-up" : diff < 0 ? "crop-trend-down" : "crop-trend-flat";
     const trendIcon = diff > 0 ? "▲" : diff < 0 ? "▼" : "―";
     const diffText = diff !== 0 ? `${diff > 0 ? "+" : ""}${diff}` : "변동없음";
-    const owned = inv[c.key] || 0;
+    const owned = (inv[c.key] && inv[c.key].qty) || 0;
 
     const row = document.createElement("div");
     row.className = "crop-row";
@@ -642,7 +694,8 @@ function renderCropList() {
           showToast("보유한 수량보다 많이 팔 수 없어요");
           return;
         }
-        showToast(`${qty}개 판매! ⭐${res.revenue} 획득`);
+        const sign = res.realizedPL >= 0 ? "+" : "";
+        showToast(`${qty}개 판매! ⭐${res.revenue} 획득 (실현손익 ${sign}⭐${Math.round(res.realizedPL)})`);
       }
       renderStars();
       renderCropList();

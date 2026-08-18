@@ -118,7 +118,8 @@ export function getPatternLabel(cropKey, dateStr = todayKey()) {
 }
 
 // ------------------------------------------------------------
-// 인벤토리 (보유 수량)
+// 인벤토리 (보유 수량 + 매입원가) — { cropKey: { qty, cost } }
+//   cost는 현재 보유 중인 수량의 누적 매입금액(가중평균 매입원가 계산용)
 // ------------------------------------------------------------
 function invKey() { return `cropInventory_${getUserId()}`; }
 export function getInventory() {
@@ -130,6 +131,9 @@ export function getInventory() {
 }
 function saveInventory(inv) {
   try { localStorage.setItem(invKey(), JSON.stringify(inv)); } catch (e) {}
+}
+function getPosition(inv, cropKey) {
+  return inv[cropKey] || { qty: 0, cost: 0 };
 }
 
 // ------------------------------------------------------------
@@ -154,12 +158,12 @@ export function checkDayRolloverAndSettle() {
   const settled = [];
   let totalCredited = 0;
   for (const c of CROPS) {
-    const qty = inv[c.key] || 0;
-    if (qty > 0) {
+    const pos = getPosition(inv, c.key);
+    if (pos.qty > 0) {
       const closingPrice = getPrice(c.key, TICKS_PER_DAY - 1, last);
-      const revenue = qty * closingPrice;
+      const revenue = pos.qty * closingPrice;
       totalCredited += revenue;
-      settled.push({ crop: c, qty, price: closingPrice, revenue });
+      settled.push({ crop: c, qty: pos.qty, price: closingPrice, revenue });
     }
   }
   if (totalCredited > 0) addStars(totalCredited);
@@ -190,8 +194,8 @@ function getHoldingsValue() {
   const inv = getInventory();
   let value = 0;
   for (const c of CROPS) {
-    const qty = inv[c.key] || 0;
-    if (qty > 0) value += qty * getPrice(c.key);
+    const pos = getPosition(inv, c.key);
+    if (pos.qty > 0) value += pos.qty * getPrice(c.key);
   }
   return value;
 }
@@ -203,7 +207,26 @@ export function getTodayStats() {
   const holdingsValue = getHoldingsValue();
   const totalValue = sellRevenue + holdingsValue;
   const profitPct = buyCost > 0 ? ((totalValue - buyCost) / buyCost) * 100 : null;
-  return { buyCost, sellRevenue, holdingsValue, totalValue, profitPct };
+  const profitAmount = buyCost > 0 ? totalValue - buyCost : 0;
+  return { buyCost, sellRevenue, holdingsValue, totalValue, profitPct, profitAmount };
+}
+
+// 토스 주식창처럼 "보유 종목" 한 줄씩 — 평단가/평가금액/평가손익 포함
+export function getPositions() {
+  const inv = getInventory();
+  const out = [];
+  for (const c of CROPS) {
+    const pos = getPosition(inv, c.key);
+    if (pos.qty > 0) {
+      const avgCost = pos.cost / pos.qty;
+      const price = getPrice(c.key);
+      const evalValue = pos.qty * price;
+      const plAmount = evalValue - pos.cost;
+      const plPct = pos.cost > 0 ? (plAmount / pos.cost) * 100 : 0;
+      out.push({ crop: c, qty: pos.qty, avgCost, price, evalValue, plAmount, plPct });
+    }
+  }
+  return out;
 }
 
 let currentNickname = { nickname: "", emoji: "" };
@@ -224,7 +247,10 @@ export function buyCrop(cropKey, qty) {
   const cost = price * qty;
   if (!spendStars(cost)) return { ok: false, reason: "stars", cost };
   const inv = getInventory();
-  inv[cropKey] = (inv[cropKey] || 0) + qty;
+  const pos = getPosition(inv, cropKey);
+  pos.qty += qty;
+  pos.cost += cost;
+  inv[cropKey] = pos;
   saveInventory(inv);
   const s = loadStats();
   s.buyCost = (s.buyCost || 0) + cost;
@@ -236,18 +262,25 @@ export function buyCrop(cropKey, qty) {
 export function sellCrop(cropKey, qty) {
   qty = Math.max(1, Math.floor(qty));
   const inv = getInventory();
-  const have = inv[cropKey] || 0;
-  if (have < qty) return { ok: false, reason: "inventory" };
+  const pos = getPosition(inv, cropKey);
+  if (pos.qty < qty) return { ok: false, reason: "inventory" };
   const price = getPrice(cropKey);
   const revenue = price * qty;
-  inv[cropKey] = have - qty;
+  const avgCost = pos.qty > 0 ? pos.cost / pos.qty : 0;
+  const costRemoved = avgCost * qty;
+
+  pos.qty -= qty;
+  pos.cost = Math.max(0, pos.cost - costRemoved);
+  if (pos.qty <= 0) { pos.qty = 0; pos.cost = 0; }
+  inv[cropKey] = pos;
   saveInventory(inv);
+
   addStars(revenue);
   const s = loadStats();
   s.sellRevenue = (s.sellRevenue || 0) + revenue;
   saveStats(s);
   syncToFirestore();
-  return { ok: true, revenue, price };
+  return { ok: true, revenue, price, realizedPL: revenue - costRemoved };
 }
 
 async function syncToFirestore() {

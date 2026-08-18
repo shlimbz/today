@@ -28,6 +28,13 @@
   --danger: #e5484d;
   --danger-soft: #fdecec;
 
+  /* 한국 증권 앱 관례: 상승=빨강, 하락=파랑 (게임 승/패의 초록/빨강과는 별개) */
+  --market-up: #f04452;
+  --market-up-soft: #fdeceec8;
+  --market-down: #3182f6;
+  --market-down-soft: #eaf2ff;
+  --market-flat: #8b879c;
+
   --radius-lg: 26px;
   --radius-md: 18px;
   --radius-sm: 12px;
@@ -110,6 +117,14 @@ p { margin: 0; }
   color: var(--text);
 }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
+.theme-toggle {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  box-shadow: var(--shadow-card);
+}
+.theme-toggle:active { transform: scale(0.92); }
 .stars-badge {
   display: flex; align-items: center; gap: 4px;
   background: var(--surface); border: 1px solid var(--line);
@@ -411,7 +426,39 @@ p { margin: 0; }
 .result-badge.win { background: var(--success-soft); color: var(--success); border-color: rgba(31,174,100,0.25); }
 .result-badge.lose { background: var(--danger-soft); color: var(--danger); border-color: rgba(229,72,77,0.25); }
 
-/* ---------- 오늘의 무값! (농작물 거래) ---------- */
+/* ---------- 오늘의 무값! (농작물 거래) — 토스 주식창 스타일 ---------- */
+.crop-asset-card { text-align: left; }
+.crop-asset-label { font-size: 12px; color: var(--text-dim); }
+.crop-asset-total { font-family: var(--font-display); font-size: 32px; color: var(--text); margin-top: 4px; }
+.crop-pl-line { font-family: var(--font-display); font-size: 15px; margin-top: 4px; }
+.crop-pl-line.up { color: var(--market-up); }
+.crop-pl-line.down { color: var(--market-down); }
+.crop-pl-line.flat { color: var(--text-faint); }
+.crop-countdown-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--surface-3);
+  font-size: 12.5px; color: var(--text-dim);
+}
+.crop-countdown-row span:last-child { font-family: var(--font-display); color: var(--text); }
+
+.section-title { font-size: 14px; color: var(--text-dim); margin: 18px 0 10px; font-family: var(--font-display); }
+
+.crop-positions { display: flex; flex-direction: column; gap: 8px; }
+.position-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  box-shadow: var(--shadow-card);
+}
+.position-left { display: flex; flex-direction: column; gap: 2px; }
+.position-name { font-family: var(--font-display); font-size: 14px; color: var(--text); }
+.position-sub { font-size: 11.5px; color: var(--text-dim); }
+.position-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.position-value { font-family: var(--font-display); font-size: 14px; color: var(--text); }
+.position-pl { font-size: 12px; font-weight: 600; }
+.position-pl.up { color: var(--market-up); }
+.position-pl.down { color: var(--market-down); }
+
 .crop-list { display: flex; flex-direction: column; gap: 10px; }
 .crop-row {
   background: var(--surface); border: 1px solid var(--line);
@@ -423,9 +470,9 @@ p { margin: 0; }
 .crop-row-price-block { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .crop-row-price { font-family: var(--font-display); font-size: 19px; color: var(--text); }
 .crop-row-trend { font-size: 11px; font-weight: 600; }
-.crop-trend-up { color: var(--success); }
-.crop-trend-down { color: var(--danger); }
-.crop-trend-flat { color: var(--text-faint); }
+.crop-trend-up { color: var(--market-up); }
+.crop-trend-down { color: var(--market-down); }
+.crop-trend-flat { color: var(--market-flat); }
 .crop-row-sub { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
 .crop-row-controls { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .crop-qty {
@@ -541,4 +588,39 @@ p { margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ============================================================
+   🌙 다크모드 — html[data-theme="dark"] 로 토글 (js/main.js 참고)
+   ============================================================ */
+html[data-theme="dark"] {
+  --bg: #14132b;
+  --bg-glow: radial-gradient(circle at 50% -10%, #24225a 0%, #14132b 55%);
+  --surface: #1e1d3d;
+  --surface-2: #2a2953;
+  --surface-3: #38356e;
+  --line: #38356e;
+  --text: #f5f3ff;
+  --text-dim: #a8a5d6;
+  --text-faint: #726ea3;
+
+  --success-soft: rgba(31, 174, 100, 0.18);
+  --danger-soft: rgba(229, 72, 77, 0.18);
+  --market-up-soft: rgba(240, 68, 82, 0.18);
+  --market-down-soft: rgba(49, 130, 246, 0.18);
+
+  --shadow-card: 0 10px 26px -16px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 20px 40px -18px rgba(0, 0, 0, 0.65);
+}
+
+html[data-theme="dark"] .bottom-nav {
+  background: rgba(30, 29, 61, 0.92);
+}
+html[data-theme="dark"] .toast {
+  background: var(--surface-2);
+  color: var(--text);
+}
+html[data-theme="dark"] .ticket::before,
+html[data-theme="dark"] .ticket::after {
+  background: var(--bg);
 }
