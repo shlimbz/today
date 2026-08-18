@@ -60,6 +60,17 @@ let spawnAt = 0;
 let round = 0;
 let times = [];
 let lastResultMs = null;
+let todayBestMs = null;
+let todayBestDate = null;
+
+function trackLocalBest(ms) {
+  const d = todayKey();
+  if (todayBestDate !== d) {
+    todayBestDate = d;
+    todayBestMs = null;
+  }
+  if (todayBestMs == null || ms < todayBestMs) todayBestMs = ms;
+}
 let currentNickname = { nickname: "", emoji: "" };
 
 export function setNickname(n) { currentNickname = n; }
@@ -194,6 +205,7 @@ export function handleStageTap() {
 }
 
 async function saveRecord(ms) {
+  trackLocalBest(ms);
   const userId = getUserId();
   const date = todayKey();
   try {
@@ -284,9 +296,10 @@ export function shareReactionResult() {
     showToast("먼저 기록을 측정해보세요!");
     return;
   }
+  const best = todayBestDate === todayKey() && todayBestMs != null ? todayBestMs : lastResultMs;
   shareText({
-    title: `⚡ 반응속도 평균 ${fmtMs(lastResultMs)}`,
-    description: `오늘의 놀이터에서 5라운드 평균 ${Math.round(lastResultMs)}ms를 기록했어요!`,
+    title: `⚡ 오늘 최고 반응속도 평균 ${fmtMs(best)}`,
+    description: `오늘의 놀이터에서 5라운드 평균 ${Math.round(best)}ms를 기록했어요!`,
     imageEmoji: "⚡",
   });
 }

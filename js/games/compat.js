@@ -26,6 +26,8 @@ function sanitizeName(name) {
 }
 
 let lastResult = null;
+let todayBest = null; // { nameA, nameB, score, type } — 오늘 체크한 것 중 최고점
+let todayBestDate = null;
 
 export const CHECK_COST = 1;
 
@@ -46,6 +48,10 @@ export function computeCompat(nameA, nameB) {
   const type = getType(score);
 
   lastResult = { nameA, nameB, sortedKey: `${sorted[0]}_${sorted[1]}`, score, type, date };
+
+  if (todayBestDate !== date) { todayBestDate = date; todayBest = null; }
+  if (todayBest == null || score > todayBest.score) todayBest = lastResult;
+
   saveCompatRecord(lastResult);
   return lastResult;
 }
@@ -86,9 +92,10 @@ export function shareCompatResult() {
     showToast("먼저 궁합을 확인해보세요!");
     return;
   }
+  const best = todayBestDate === todayKey() && todayBest ? todayBest : lastResult;
   shareText({
-    title: `💕 ${lastResult.nameA} × ${lastResult.nameB} 궁합 ${lastResult.score}점`,
-    description: `${lastResult.type.badge} — ${lastResult.type.desc}`,
+    title: `💕 ${best.nameA} × ${best.nameB} 오늘 최고 궁합 ${best.score}점`,
+    description: `${best.type.badge} — ${best.type.desc}`,
     imageEmoji: "💕",
   });
 }

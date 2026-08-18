@@ -71,7 +71,7 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 #app.with-nav {
-  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
 }
 
 button {
@@ -229,7 +229,7 @@ p { margin: 0; }
 .game-card .chev { margin-left: auto; color: var(--text-faint); font-size: 20px; }
 
 /* ---------- 화면 공통 ---------- */
-.screen { padding: 0 20px; animation: fadeIn .25s ease; }
+.screen { padding: 0 20px 24px; animation: fadeIn .25s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity:1; transform:none; } }
 
 .screen-header { padding: 18px 0 10px; display: flex; align-items: center; gap: 10px; }
@@ -422,7 +422,9 @@ p { margin: 0; }
 }
 .crop-row-top { display: flex; align-items: center; justify-content: space-between; }
 .crop-row-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 15px; color: var(--text); }
-.crop-row-price { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 16px; }
+.crop-row-price-block { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.crop-row-price { font-family: var(--font-display); font-size: 19px; color: var(--text); }
+.crop-row-trend { font-size: 11px; font-weight: 600; }
 .crop-trend-up { color: var(--success); }
 .crop-trend-down { color: var(--danger); }
 .crop-trend-flat { color: var(--text-faint); }

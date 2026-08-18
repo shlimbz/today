@@ -273,7 +273,17 @@ export function shareColorResult() {
   }
   const cfg = DIFFICULTIES[lastResult.diffKey];
   const modeLabel = lastResult.mode === "practice" ? " (연습)" : "";
-  if (lastResult.success) {
+
+  // 랭크(오늘의 도전) 모드는 방금 라운드가 아니라 "오늘의 개인 최고기록"을 공유
+  const todayBest = lastResult.mode === "ranked" ? loadLocalDay()[`${lastResult.diffKey}BestMs`] : null;
+
+  if (todayBest != null) {
+    shareText({
+      title: `🎨 틀린색상 찾기 · ${cfg.label} 오늘 최고기록`,
+      description: `오늘 ${fmtSec(todayBest)} 만에 찾았어요!`,
+      imageEmoji: "🎨",
+    });
+  } else if (lastResult.success) {
     shareText({
       title: `🎨 틀린색상 찾기 · ${cfg.label}${modeLabel}`,
       description: `${fmtSec(lastResult.elapsedMs)} 만에 찾았어요!`,

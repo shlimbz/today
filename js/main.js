@@ -531,6 +531,14 @@ const cropQty = {}; // cropKey -> 현재 입력된 수량
 
 function startCropScreen() {
   Crop.CROPS.forEach((c) => { if (!(c.key in cropQty)) cropQty[c.key] = 1; });
+
+  const { settled, totalCredited } = Crop.checkDayRolloverAndSettle();
+  if (settled.length > 0) {
+    const parts = settled.map((s) => `${s.crop.emoji}${s.qty}개`).join(", ");
+    showToast(`어제 남은 ${parts} → 종가로 자동 정산, ⭐${totalCredited} 지급!`);
+    renderStars();
+  }
+
   renderCropList();
   renderCropSummary();
   clearInterval(cropTimerId);
@@ -545,6 +553,7 @@ function startCropScreen() {
       lastTick = tick;
       renderCropList();
       renderCropSummary();
+      Crop.syncNow(); // 보유 재고 평가액이 바뀌었으니 순위표도 최신화
     }
   }, 1000);
 }
@@ -555,7 +564,7 @@ function stopCropTimer() {
 }
 
 function renderCropSummary() {
-  const { profitPct } = Crop.getTodayStats();
+  const { profitPct, buyCost, holdingsValue, sellRevenue } = Crop.getTodayStats();
   const el = $id("cropProfit");
   if (profitPct == null) {
     el.textContent = "아직 거래 없음";
@@ -565,6 +574,7 @@ function renderCropSummary() {
     el.textContent = `${sign}${profitPct.toFixed(1)}%`;
     el.style.color = profitPct >= 0 ? "var(--success)" : "var(--danger)";
   }
+  $id("cropHoldingsInfo").textContent = `보유 평가액 ⭐${holdingsValue} · 누적 매수 ⭐${buyCost} · 누적 매도 ⭐${sellRevenue}`;
 }
 
 function renderCropList() {
@@ -576,8 +586,10 @@ function renderCropList() {
   Crop.CROPS.forEach((c) => {
     const price = Crop.getPrice(c.key, tick);
     const prevPrice = tick > 0 ? Crop.getPrice(c.key, tick - 1) : price;
-    const trendClass = price > prevPrice ? "crop-trend-up" : price < prevPrice ? "crop-trend-down" : "crop-trend-flat";
-    const trendIcon = price > prevPrice ? "▲" : price < prevPrice ? "▼" : "―";
+    const diff = price - prevPrice;
+    const trendClass = diff > 0 ? "crop-trend-up" : diff < 0 ? "crop-trend-down" : "crop-trend-flat";
+    const trendIcon = diff > 0 ? "▲" : diff < 0 ? "▼" : "―";
+    const diffText = diff !== 0 ? `${diff > 0 ? "+" : ""}${diff}` : "변동없음";
     const owned = inv[c.key] || 0;
 
     const row = document.createElement("div");
@@ -585,12 +597,15 @@ function renderCropList() {
     row.innerHTML = `
       <div class="crop-row-top">
         <span class="crop-row-name">${c.emoji} ${c.label}</span>
-        <span class="crop-row-price ${trendClass}">${trendIcon} ⭐${price}</span>
+        <span class="crop-row-price-block">
+          <span class="crop-row-price">⭐${price}</span>
+          <span class="crop-row-trend ${trendClass}">${trendIcon} ${diffText}</span>
+        </span>
       </div>
-      <div class="crop-row-sub">보유 ${owned}개 · 가치 ⭐${owned * price}</div>
+      <div class="crop-row-sub">보유 ${owned}개 · 평가액 ⭐${owned * price} · 이전가 ⭐${prevPrice}</div>
       <div class="crop-row-controls">
         <input type="number" min="1" value="${cropQty[c.key]}" class="crop-qty" data-crop="${c.key}" />
-        <button class="crop-btn buy" data-action="buy" data-crop="${c.key}" type="button">구매</button>
+        <button class="crop-btn buy" data-action="buy" data-crop="${c.key}" type="button">구매 ⭐${price}</button>
         <button class="crop-btn sell" data-action="sell" data-crop="${c.key}" type="button" ${owned <= 0 ? "disabled" : ""}>판매</button>
       </div>
     `;
