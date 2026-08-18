@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>오늘의 놀이터</title>
+<meta name="description" content="반응속도, 친구 궁합, 틀린색상 찾기 — 매일 초기화되는 작은 놀이터" />
+
+<!-- 카카오톡 등 공유 시 미리보기용 (og 이미지는 배포 후 실제 경로로 교체하세요) -->
+<meta property="og:title" content="오늘의 놀이터" />
+<meta property="og:description" content="반응속도 · 궁합 · 틀린색상 찾기, 오늘의 기록에 도전해보세요" />
+<meta property="og:type" content="website" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+
+<link rel="stylesheet" href="./css/style.css" />
+
+<!-- 카카오 JS SDK: js/utils.js 안의 KAKAO_JS_KEY 를 발급받은 키로 교체해야 정상 동작합니다 -->
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============== 상단 바 ============== -->
+  <header class="topbar">
+    <div class="brand">🎪 오늘의 놀이터</div>
+    <button class="nickname-pill" id="nicknameBtn" type="button">
+      <span id="nicknameEmoji">🐱</span>
+      <span id="nicknameLabel">불러오는 중</span>
+      <span>✏️</span>
+    </button>
+  </header>
+
+  <!-- ============== 메인 화면 ============== -->
+  <main id="screen-main" class="screen" style="padding-top:0;">
+
+    <section class="ticket" id="todayTicket">
+      <div class="ticket-head">
+        <div>
+          <div class="eyebrow">TODAY'S TICKET</div>
+          <h2>오늘의 기록</h2>
+        </div>
+        <div class="ticket-date" id="ticketDate">-</div>
+      </div>
+      <div class="ticket-divider"></div>
+      <div class="ticket-rows" id="ticketRows">
+        <div class="ticket-row"><span class="label">⚡ 반응속도</span><span class="value empty">아직 기록 없음</span></div>
+        <div class="ticket-row"><span class="label">🎨 틀린색상</span><span class="value empty">아직 기록 없음</span></div>
+        <div class="ticket-row"><span class="label">💕 베스트 궁합</span><span class="value empty">아직 기록 없음</span></div>
+      </div>
+    </section>
+
+    <nav class="game-list">
+      <button class="game-card reaction" data-nav="reaction" type="button">
+        <div class="icon">⚡</div>
+        <div>
+          <div class="title">반응속도 측정</div>
+          <div class="desc">색이 바뀌는 순간 얼마나 빨리 누를 수 있나요?</div>
+        </div>
+        <div class="chev">›</div>
+      </button>
+
+      <button class="game-card compat" data-nav="compat" type="button">
+        <div class="icon">💕</div>
+        <div>
+          <div class="title">오늘의 친구 궁합</div>
+          <div class="desc">이름 두 개로 오늘의 궁합을 확인해보세요</div>
+        </div>
+        <div class="chev">›</div>
+      </button>
+
+      <button class="game-card colorgame" data-nav="colorgame" type="button">
+        <div class="icon">🎨</div>
+        <div>
+          <div class="title">틀린색상 찾기</div>
+          <div class="desc">난이도별 하루 3번, 미묘한 색 차이를 찾아라</div>
+        </div>
+        <div class="chev">›</div>
+      </button>
+    </nav>
+
+    <p class="hint" style="text-align:center; margin: 20px 0 4px;">모든 기록은 매일 자정 초기화됩니다 🌙</p>
+  </main>
+
+  <!-- ============== 반응속도 화면 ============== -->
+  <section id="screen-reaction" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="main" type="button">‹</button>
+      <h1>⚡ 반응속도 측정</h1>
+    </div>
+
+    <div class="reaction-stage state-idle" id="reactionStage">
+      <div class="stage-msg" id="reactionMsg">탭해서 시작</div>
+      <div class="stage-sub" id="reactionSub">초록색으로 바뀌는 순간 화면을 터치하세요</div>
+    </div>
+
+    <p class="hint" style="text-align:center; margin-top:14px;">색이 바뀌기 전에 누르면 탈락이에요. 3~10초 사이 무작위로 바뀝니다.</p>
+  </section>
+
+  <!-- ============== 궁합 화면 ============== -->
+  <section id="screen-compat" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="main" type="button">‹</button>
+      <h1>💕 오늘의 친구 궁합</h1>
+    </div>
+
+    <div class="panel" id="compatForm">
+      <input class="field" id="compatNameA" type="text" placeholder="첫 번째 이름" maxlength="10" />
+      <input class="field" id="compatNameB" type="text" placeholder="두 번째 이름" maxlength="10" />
+      <button class="btn primary compat" id="compatSubmit" type="button">궁합 확인하기</button>
+      <p class="hint" style="margin-top:10px;">같은 날, 같은 두 사람이면 순서를 바꿔도 결과는 항상 같아요.</p>
+    </div>
+
+    <div class="panel hidden" id="compatResultPanel">
+      <div class="compat-names" id="compatNamesLine"></div>
+      <div class="compat-result">
+        <div class="score" id="compatScore">0</div>
+        <div class="type-badge" id="compatType"></div>
+        <p class="type-desc" id="compatDesc"></p>
+      </div>
+      <button class="btn ghost" id="compatRetry" type="button" style="margin-top:16px;">다른 조합 확인하기</button>
+    </div>
+  </section>
+
+  <!-- ============== 틀린색상 찾기: 난이도 선택 ============== -->
+  <section id="screen-colorgame" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="main" type="button">‹</button>
+      <h1>🎨 틀린색상 찾기</h1>
+    </div>
+    <div class="diff-select" id="diffSelect"></div>
+    <p class="hint" style="text-align:center; margin-top:14px;">난이도별 하루 3번, 성공/실패와 관계없이 1회씩 차감돼요.</p>
+  </section>
+
+  <!-- ============== 틀린색상 찾기: 플레이 ============== -->
+  <section id="screen-colorplay" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="colorgame" type="button">‹</button>
+      <h1 id="colorPlayTitle">🎨 틀린색상 찾기</h1>
+    </div>
+    <div class="color-hud">
+      <span id="colorPlayInfo">3×3 · 남은 시도 3/3</span>
+      <span class="timer" id="colorTimer">5.0</span>
+    </div>
+    <div class="color-grid" id="colorGrid"></div>
+  </section>
+
+  <!-- ============== 틀린색상 찾기: 결과 ============== -->
+  <section id="screen-colorresult" class="screen hidden">
+    <div class="screen-header">
+      <button class="back-btn" data-nav="colorgame" type="button">‹</button>
+      <h1>결과</h1>
+    </div>
+    <div class="result-badge" id="colorResultBadge">성공!</div>
+    <div class="panel" id="colorResultPanel"></div>
+    <button class="btn primary colorgame" id="colorPlayAgain" type="button">다시 도전하기</button>
+  </section>
+
+  <!-- ============== 하단 네비 (게임 화면에서만 노출) ============== -->
+  <nav class="bottom-nav hidden" id="bottomNav">
+    <button data-nav="main" type="button"><span class="ic">🏠</span><span>메인</span></button>
+    <button id="navRank" type="button"><span class="ic">🏆</span><span>순위</span></button>
+    <button id="navShare" type="button"><span class="ic">📤</span><span>공유</span></button>
+  </nav>
+
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

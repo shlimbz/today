@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// ------------------------------------------------------------
+// 이 앱은 별도 로그인 없이 기기별 임의 userId(localStorage)만 사용합니다.
+// 따라서 완벽한 본인 확인은 불가능하며, 아래 규칙은 "형태가 올바른 데이터만
+// 쓰도록" 막는 최소한의 보호 장치입니다.
+// 더 강한 보호가 필요하면 Firebase Anonymous Auth 도입을 권장합니다.
+// ------------------------------------------------------------
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 닉네임 선점 (닉네임 문서 ID = 닉네임 문자열)
+    match /nicknames/{nickname} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['userId', 'claimedAt'])
+                    && request.resource.data.userId is string;
+      allow update: if resource.data.userId == request.resource.data.userId;
+      allow delete: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['nickname'])
+                   && request.resource.data.nickname is string
+                   && request.resource.data.nickname.size() <= 20;
+    }
+
+    // 반응속도 - 일일 기록 (record 문서 ID = userId)
+    match /reactionDaily/{date}/records/{userId} {
+      allow read: if true;
+      allow write: if request.resource.data.ms is number
+                   && request.resource.data.ms > 0
+                   && request.resource.data.ms < 10000;
+    }
+
+    match /reactionAllTime/{userId} {
+      allow read: if true;
+      allow write: if request.resource.data.ms is number
+                   && request.resource.data.ms > 0
+                   && request.resource.data.ms < 10000;
+    }
+
+    // 오늘의 궁합 - 문서 ID = 정렬된 이름쌍
+    match /compatDaily/{date}/records/{pairKey} {
+      allow read: if true;
+      allow write: if request.resource.data.score is number
+                   && request.resource.data.score >= 0
+                   && request.resource.data.score <= 100;
+    }
+
+    // 틀린색상 찾기 - 일일 진행상황 (문서 ID = userId)
+    match /colorDaily/{date}/records/{userId} {
+      allow read: if true;
+      allow write: if request.resource.data.get('easyAttempts', 0) <= 3
+                   && request.resource.data.get('normalAttempts', 0) <= 3
+                   && request.resource.data.get('hardAttempts', 0) <= 3;
+    }
+  }
+}
