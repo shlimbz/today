@@ -86,15 +86,17 @@ function generateColors(diffKey, rng) {
   const cfg = DIFFICULTIES[diffKey];
   const cellCount = cfg.grid * cfg.grid;
   const hue = randIntWith(rng, 0, 359);
-  const sat = randIntWith(rng, 62, 88);
-  const baseLight = randIntWith(rng, 42, 58);
+  // OKLCH는 HSL과 달리 같은 수치 차이가 색상(hue)에 관계없이 비슷한 "눈에 보이는" 차이로
+  // 지각되는 색공간이라, 여기서는 노랑이 유독 쉽고 파랑이 유독 어려운 문제가 크게 줄어듭니다.
+  const chroma = randIntWith(rng, 12, 18) / 100; // 채도감 (0.12~0.18)
+  const baseLight = randIntWith(rng, 45, 60); // 밝기 %
   const oddIndex = randIntWith(rng, 0, cellCount - 1);
   const sign = rng() < 0.5 ? -1 : 1;
   let oddLight = baseLight + sign * cfg.delta;
-  oddLight = Math.max(8, Math.min(92, oddLight));
+  oddLight = Math.max(15, Math.min(90, oddLight));
 
-  const colors = new Array(cellCount).fill(`hsl(${hue} ${sat}% ${baseLight}%)`);
-  colors[oddIndex] = `hsl(${hue} ${sat}% ${oddLight}%)`;
+  const colors = new Array(cellCount).fill(`oklch(${baseLight}% ${chroma} ${hue})`);
+  colors[oddIndex] = `oklch(${oddLight}% ${chroma} ${hue})`;
   return { colors, oddIndex, cellCount };
 }
 
@@ -252,6 +254,11 @@ export async function getTodayTotalRanking() {
   } catch (e) {
     return [];
   }
+}
+
+export async function getTodayTop1Total() {
+  const list = await getTodayTotalRanking();
+  return list[0] || null;
 }
 
 export function shareColorResult() {

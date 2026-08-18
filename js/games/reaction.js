@@ -2,9 +2,50 @@ import { db, doc, getDoc, setDoc, collection, query, orderBy, limit, where, getD
 import { todayKey, getUserId, showToast, shareText, fmtMs, withTimeout } from "../utils.js";
 
 const ROUNDS = 5;
-const TARGET_SIZE = 62; // css .reaction-target 크기와 맞춰야 함
-const FIRST_DELAY_RANGE = [800, 1800]; // 시작 후 첫 원이 뜨기까지
-const GAP_RANGE = [350, 800]; // 원을 맞춘 뒤 다음 원이 뜨기까지
+const TARGET_SIZE = 62; // css .reaction-target 기본 크기와 맞춰야 함
+const FIRST_DELAY_RANGE = [600, 1400]; // 시작 후 첫 원이 뜨기까지 (더 스피디하게 단축)
+
+// ------------------------------------------------------------
+// 원 색상 설정 — 사용자가 고를 수 있는 프리셋 (localStorage에 저장)
+// ------------------------------------------------------------
+const COLOR_PRESETS = {
+  yellow: { label: "🟡 노랑", make: () => "#FFB020" },
+  red: { label: "🔴 빨강", make: () => "#F14747" },
+  blue: { label: "🔵 파랑", make: () => "#3B82F6" },
+  green: { label: "🟢 초록", make: () => "#22C55E" },
+  black: { label: "⚫ 검정", make: () => "#232230" },
+  random: { label: "🌈 매번 다른색", make: () => `hsl(${Math.floor(Math.random() * 360)} 78% 55%)` },
+  multi: {
+    label: "🎨 멀티컬러",
+    make: () => {
+      const h1 = Math.floor(Math.random() * 360);
+      const h2 = (h1 + 110 + Math.floor(Math.random() * 140)) % 360;
+      return `linear-gradient(135deg, hsl(${h1} 80% 55%), hsl(${h2} 80% 55%))`;
+    },
+  },
+};
+export const COLOR_MODE_OPTIONS = Object.entries(COLOR_PRESETS).map(([key, v]) => ({ key, label: v.label }));
+
+let colorMode = localStorage.getItem("reactionColorMode") || "yellow";
+export function getColorMode() { return colorMode; }
+export function setColorMode(mode) {
+  if (!COLOR_PRESETS[mode]) return;
+  colorMode = mode;
+  localStorage.setItem("reactionColorMode", mode);
+}
+function pickTargetColor() {
+  return (COLOR_PRESETS[colorMode] || COLOR_PRESETS.yellow).make();
+}
+
+// 라운드가 진행될수록 다음 원이 더 빨리, 더 예측 불가능하게 등장 (속도감 강화)
+function gapRangeForRound(nextRound) {
+  const shrink = Math.min(350, (nextRound - 1) * 90);
+  return [Math.max(160, 550 - shrink), Math.max(320, 950 - shrink)];
+}
+// 라운드가 진행될수록 원도 살짝 작아져서 마지막 라운드는 더 정교한 조준이 필요함 (최소 44px 유지)
+function sizeForRound(r) {
+  return Math.max(44, TARGET_SIZE - (r - 1) * 4);
+}
 
 const stageEl = () => document.getElementById("reactionStage");
 const centerEl = () => document.getElementById("reactionCenter");
@@ -69,13 +110,17 @@ function spawnTarget() {
 
   const stage = stageEl();
   const rect = stage.getBoundingClientRect();
-  const margin = TARGET_SIZE / 2 + 14;
+  const size = sizeForRound(round);
+  const margin = size / 2 + 14;
   const x = randInt(margin, Math.max(margin, rect.width - margin));
   const y = randInt(margin, Math.max(margin, rect.height - margin));
 
   const t = targetEl();
   t.style.left = `${x}px`;
   t.style.top = `${y}px`;
+  t.style.width = `${size}px`;
+  t.style.height = `${size}px`;
+  t.style.background = pickTargetColor();
   t.classList.remove("hidden");
   // 애니메이션 재시작을 위해 리플로우
   t.style.animation = "none";
@@ -100,7 +145,7 @@ function handleTargetTap() {
     finishGame();
   } else {
     state = "waiting";
-    const [min, max] = GAP_RANGE;
+    const [min, max] = gapRangeForRound(round + 1);
     spawnTimer = setTimeout(spawnTarget, randInt(min, max));
   }
 }
@@ -186,6 +231,11 @@ export async function getTodayRanking() {
   } catch (e) {
     return [];
   }
+}
+
+export async function getTodayTop1() {
+  const list = await getTodayRanking();
+  return list[0] || null;
 }
 
 export async function getAllTimeRanking() {

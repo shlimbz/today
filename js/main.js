@@ -41,6 +41,7 @@ const SCREEN_IDS = ["main", "reaction", "compat", "colorgame", "colorpractice", 
 function showScreen(name) {
   if (currentScreen === "colorplay" && name !== "colorplay") {
     ColorGame.cancelRound();
+    practiceActive = false;
   }
   currentScreen = name;
   for (const id of SCREEN_IDS) {
@@ -78,15 +79,20 @@ async function renderMainTicket() {
   $id("ticketDate").textContent = todayLabel();
   const rows = $id("ticketRows");
 
-  const [reactionSummary, colorProgress, bestCompat] = await Promise.all([
+  const [reactionSummary, colorProgress, bestCompat, reactionTop, colorTop] = await Promise.all([
     Reaction.getMySummaryToday(),
     ColorGame.getMyProgress(),
     Compat.getTodayBestCompatForTicket(),
+    Reaction.getTodayTop1(),
+    ColorGame.getTodayTop1Total(),
   ]);
 
   const reactionRow = reactionSummary
     ? `<span class="value">${fmtMs(reactionSummary.ms)}${reactionSummary.rank ? ` <span style="color:var(--text-faint); font-size:11px;">(${reactionSummary.rank}/${reactionSummary.total}위)</span>` : ""}</span>`
     : `<span class="value empty">아직 기록 없음</span>`;
+  const reactionTopLine = reactionTop
+    ? `<div class="ticket-subrow">🥇 오늘 1위 ${reactionTop.emoji || "🙂"} ${reactionTop.nickname || "익명"} · ${fmtMs(reactionTop.ms)}</div>`
+    : "";
 
   const colorParts = [];
   if (colorProgress.easy.bestMs != null) colorParts.push(`초${fmtSec(colorProgress.easy.bestMs)}`);
@@ -96,6 +102,9 @@ async function renderMainTicket() {
   const colorRow = colorParts.length
     ? `<span class="value">${colorParts.join(" · ")}</span>`
     : `<span class="value empty">아직 기록 없음</span>`;
+  const colorTopLine = colorTop
+    ? `<div class="ticket-subrow">🥇 종합 1위 ${colorTop.emoji || "🙂"} ${colorTop.nickname || "익명"} · ${fmtSec(colorTop.totalBestMs)}</div>`
+    : "";
 
   const compatRow = bestCompat
     ? `<span class="value">${bestCompat.nameA}❤️${bestCompat.nameB} ${bestCompat.score}점</span>`
@@ -103,7 +112,9 @@ async function renderMainTicket() {
 
   rows.innerHTML = `
     <div class="ticket-row"><span class="label">⚡ 반응속도</span>${reactionRow}</div>
+    ${reactionTopLine}
     <div class="ticket-row"><span class="label">🎨 틀린색상</span>${colorRow}</div>
+    ${colorTopLine}
     <div class="ticket-row"><span class="label">💕 베스트 궁합</span>${compatRow}</div>
   `;
 }
@@ -114,6 +125,25 @@ async function renderMainTicket() {
 function bindReactionScreen() {
   $id("reactionStage").addEventListener("click", () => {
     Reaction.handleStageTap();
+  });
+  $id("reactionSettingsBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    openReactionSettings();
+  });
+}
+
+function openReactionSettings() {
+  const current = Reaction.getColorMode();
+  const optionsHtml = Reaction.COLOR_MODE_OPTIONS.map(
+    (o) => `<button class="settings-option ${o.key === current ? "active" : ""}" data-mode="${o.key}" type="button">${o.label}</button>`
+  ).join("");
+  const { root, close } = modalShell("⚙️ 원 색상 설정", `<div class="settings-list">${optionsHtml}</div>`);
+  root.querySelectorAll(".settings-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      Reaction.setColorMode(btn.dataset.mode);
+      showToast("색상 설정을 저장했어요");
+      close();
+    });
   });
 }
 
@@ -207,23 +237,23 @@ function renderPracticeSelect() {
       </div>
       <div class="hearts">♾️ 무제한</div>
     `;
-    btn.addEventListener("click", () => beginColorRound(cfg.key, "practice"));
+    btn.addEventListener("click", () => startPracticeSession(cfg.key));
     wrap.appendChild(btn);
   });
 }
 
 function bindColorScreens() {
-  $id("colorPlayAgain").addEventListener("click", () => {
-    if (currentColorMode === "practice") {
-      beginColorRound(currentColorDiff, "practice"); // 같은 난이도로 바로 재도전
-    } else {
-      showScreen("colorgame");
-    }
+  $id("colorPlayAgain").addEventListener("click", () => showScreen("colorgame"));
+  $id("colorPracticeStop").addEventListener("click", () => {
+    practiceActive = false;
+    ColorGame.cancelRound();
+    showScreen("colorpractice");
   });
-  $id("colorPracticeExit").addEventListener("click", () => showScreen("colorpractice"));
 }
 
 let currentColorMode = "ranked";
+let practiceActive = false;
+let practiceStats = { rounds: 0, success: 0 };
 
 function setColorBackTargets() {
   const target = currentColorMode === "practice" ? "colorpractice" : "colorgame";
@@ -231,12 +261,42 @@ function setColorBackTargets() {
   $id("colorResultBack").dataset.nav = target;
 }
 
+// 랭크(오늘의 도전) 모드: 한 라운드 플레이 후 결과 화면으로 이동
 function beginColorRound(diffKey, mode) {
   currentColorDiff = diffKey;
   currentColorMode = mode;
+  practiceActive = false;
   setColorBackTargets();
-  const cfg = ColorGame.DIFFICULTIES[diffKey];
+  $id("colorPracticeStop").classList.add("hidden");
   showScreen("colorplay");
+  playColorRound(diffKey, mode, (result) => renderColorResult(result));
+}
+
+// 연습 모드: 사용자가 종료를 누를 때까지 자동으로 다음 라운드가 이어짐
+function startPracticeSession(diffKey) {
+  currentColorDiff = diffKey;
+  currentColorMode = "practice";
+  practiceActive = true;
+  practiceStats = { rounds: 0, success: 0 };
+  setColorBackTargets();
+  $id("colorPracticeStop").classList.remove("hidden");
+  showScreen("colorplay");
+  loopPracticeRound(diffKey);
+}
+
+function loopPracticeRound(diffKey) {
+  if (!practiceActive) return;
+  playColorRound(diffKey, "practice", (result) => {
+    practiceStats.rounds += 1;
+    if (result.success) practiceStats.success += 1;
+    if (!practiceActive) return;
+    setTimeout(() => loopPracticeRound(diffKey), 220);
+  });
+}
+
+// 한 라운드를 그리고, 끝나면 onRoundEnd(result)를 호출
+function playColorRound(diffKey, mode, onRoundEnd) {
+  const cfg = ColorGame.DIFFICULTIES[diffKey];
   $id("colorPlayTitle").textContent = `${mode === "practice" ? "🎯 연습" : "🎨"} · ${cfg.label}`;
 
   let cellEls = [];
@@ -259,10 +319,14 @@ function beginColorRound(diffKey, mode) {
       if (cellEls[oddIndex]) cellEls[oddIndex].innerHTML += `<span class="mark">✓</span>`;
       showToast(success ? "정답이에요! 🎉" : reason === "timeout" ? "시간 초과예요 ⏰" : "여기가 아니었어요");
     },
-    onEnd: (result) => renderColorResult(result),
+    onEnd: (result) => onRoundEnd(result),
   });
 
-  $id("colorPlayInfo").textContent = `${cfg.label} ${grid}×${grid}${mode === "practice" ? " · 연습" : ""}`;
+  const infoText =
+    mode === "practice"
+      ? `${cfg.label} ${grid}×${grid} · ${practiceStats.rounds + 1}번째 (정답 ${practiceStats.success}개)`
+      : `${cfg.label} ${grid}×${grid}`;
+  $id("colorPlayInfo").textContent = infoText;
   $id("colorTimer").textContent = (timeLimitMs / 1000).toFixed(1);
   $id("colorTimer").classList.remove("warn");
 
@@ -287,21 +351,11 @@ function renderColorResult(result) {
   badge.className = `result-badge ${result.success ? "win" : "lose"}`;
   badge.textContent = result.success ? `🎉 성공! ${fmtSec(result.elapsedMs)}` : result.reason === "timeout" ? "⏰ 시간 초과!" : "❌ 다른 칸이었어요";
 
-  if (result.mode === "practice") {
-    $id("colorResultPanel").innerHTML = `
-      <div class="ticket-row"><span class="label">${cfg.label} (연습)</span><span class="value">${fmtSec(result.elapsedMs)}</span></div>
-    `;
-    $id("colorPlayAgain").textContent = "다시 연습하기";
-    $id("colorPracticeExit").classList.remove("hidden");
-  } else {
-    const remain = result.progress.maxAttempts - result.progress.attempts;
-    $id("colorResultPanel").innerHTML = `
-      <div class="ticket-row"><span class="label">${cfg.label} 오늘 최고 기록</span><span class="value">${result.progress.bestMs != null ? fmtSec(result.progress.bestMs) : "-"}</span></div>
-      <div class="ticket-row"><span class="label">남은 도전 횟수</span><span class="value">${Math.max(0, remain)}/${result.progress.maxAttempts}</span></div>
-    `;
-    $id("colorPlayAgain").textContent = "다시 도전하기";
-    $id("colorPracticeExit").classList.add("hidden");
-  }
+  const remain = result.progress.maxAttempts - result.progress.attempts;
+  $id("colorResultPanel").innerHTML = `
+    <div class="ticket-row"><span class="label">${cfg.label} 오늘 최고 기록</span><span class="value">${result.progress.bestMs != null ? fmtSec(result.progress.bestMs) : "-"}</span></div>
+    <div class="ticket-row"><span class="label">남은 도전 횟수</span><span class="value">${Math.max(0, remain)}/${result.progress.maxAttempts}</span></div>
+  `;
 }
 
 // ============================================================

@@ -90,6 +90,7 @@
     <div class="screen-header">
       <button class="back-btn" data-nav="main" type="button">‹</button>
       <h1>⚡ 반응속도 측정</h1>
+      <button class="back-btn" id="reactionSettingsBtn" type="button" style="margin-left:auto;">⚙️</button>
     </div>
 
     <div class="reaction-stage state-idle" id="reactionStage">
@@ -164,6 +165,7 @@
     </div>
     <div class="color-hud">
       <span id="colorPlayInfo">3×3 · 남은 시도 3/3</span>
+      <button class="tab-btn hidden" id="colorPracticeStop" type="button" style="flex:none; padding:6px 14px;">■ 종료</button>
       <span class="timer" id="colorTimer">5.0</span>
     </div>
     <div class="color-grid" id="colorGrid"></div>
@@ -178,7 +180,6 @@
     <div class="result-badge" id="colorResultBadge">성공!</div>
     <div class="panel" id="colorResultPanel"></div>
     <button class="btn primary colorgame" id="colorPlayAgain" type="button">다시 도전하기</button>
-    <button class="btn ghost hidden" id="colorPracticeExit" type="button" style="margin-top:10px;">연습 종료하고 난이도 선택으로</button>
   </section>
 
   <!-- ============== 하단 네비 (게임 화면에서만 노출) ============== -->
