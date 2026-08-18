@@ -1,6 +1,24 @@
 import { db, doc, getDoc, setDoc } from "./firebase-config.js";
 
 // ------------------------------------------------------------
+// Firebase 설정이 아직 안 되어 있거나 네트워크가 느릴 때 화면이
+// "불러오는 중"에 무한정 멈춰있지 않도록, 일정 시간이 지나면
+// 실패로 간주하고 넘어가게 해주는 헬퍼.
+// ------------------------------------------------------------
+export function withTimeout(promise, ms = 3500, fallback = null) {
+  return new Promise((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) { done = true; resolve(fallback); }
+    }, ms);
+    promise.then(
+      (val) => { if (!done) { done = true; clearTimeout(timer); resolve(val); } },
+      () => { if (!done) { done = true; clearTimeout(timer); resolve(fallback); } }
+    );
+  });
+}
+
+// ------------------------------------------------------------
 // 카카오 공유: developers.kakao.com 에서 발급받은 JavaScript 키로 교체하세요.
 // 키를 넣지 않으면 자동으로 웹 공유 / 클립보드 복사로 대체됩니다.
 // ------------------------------------------------------------
@@ -86,8 +104,8 @@ export async function ensureNickname() {
   const userId = getUserId();
   const userRef = doc(db, "users", userId);
   try {
-    const snap = await getDoc(userRef);
-    if (snap.exists() && snap.data().nickname) {
+    const snap = await withTimeout(getDoc(userRef), 3000);
+    if (snap && snap.exists() && snap.data().nickname) {
       return { nickname: snap.data().nickname, emoji: snap.data().emoji || "🐱" };
     }
   } catch (e) {
@@ -104,10 +122,10 @@ export async function ensureNickname() {
     const candidate = randomNicknameCandidate(i > 4);
     try {
       const nickRef = doc(db, "nicknames", candidate.text);
-      const nickSnap = await getDoc(nickRef);
-      if (!nickSnap.exists()) {
-        await setDoc(nickRef, { userId, claimedAt: Date.now() });
-        await setDoc(userRef, { nickname: candidate.text, emoji: candidate.emoji, createdAt: Date.now() }, { merge: true });
+      const nickSnap = await withTimeout(getDoc(nickRef), 3000);
+      if (!nickSnap || !nickSnap.exists()) {
+        await withTimeout(setDoc(nickRef, { userId, claimedAt: Date.now() }), 3000);
+        await withTimeout(setDoc(userRef, { nickname: candidate.text, emoji: candidate.emoji, createdAt: Date.now() }, { merge: true }), 3000);
         picked = candidate;
         break;
       }

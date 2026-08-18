@@ -1,5 +1,5 @@
 import { db, doc, getDoc, setDoc, collection, query, orderBy, limit, where, getDocs, getCountFromServer, serverTimestamp } from "../firebase-config.js";
-import { todayKey, getUserId, showToast, shareText, fmtMs } from "../utils.js";
+import { todayKey, getUserId, showToast, shareText, fmtMs, withTimeout } from "../utils.js";
 
 const stage = () => document.getElementById("reactionStage");
 const msgEl = () => document.getElementById("reactionMsg");
@@ -67,7 +67,8 @@ async function saveRecord(ms) {
   const date = todayKey();
   try {
     const dailyRef = doc(db, "reactionDaily", date, "records", userId);
-    const snap = await getDoc(dailyRef);
+    const snap = await withTimeout(getDoc(dailyRef), 4000);
+    if (snap === null) return;
     const prevBest = snap.exists() ? snap.data().ms : null;
     if (prevBest == null || ms < prevBest) {
       await setDoc(dailyRef, {
@@ -80,7 +81,8 @@ async function saveRecord(ms) {
     }
 
     const allTimeRef = doc(db, "reactionAllTime", userId);
-    const allSnap = await getDoc(allTimeRef);
+    const allSnap = await withTimeout(getDoc(allTimeRef), 4000);
+    if (allSnap === null) return;
     const prevAll = allSnap.exists() ? allSnap.data().ms : null;
     if (prevAll == null || ms < prevAll) {
       await setDoc(allTimeRef, {
@@ -100,8 +102,8 @@ export async function getTodayRanking() {
   const date = todayKey();
   try {
     const q = query(collection(db, "reactionDaily", date, "records"), orderBy("ms", "asc"), limit(10));
-    const snaps = await getDocs(q);
-    return snaps.docs.map((d) => d.data());
+    const snaps = await withTimeout(getDocs(q), 4000);
+    return snaps ? snaps.docs.map((d) => d.data()) : [];
   } catch (e) {
     return [];
   }
@@ -110,8 +112,8 @@ export async function getTodayRanking() {
 export async function getAllTimeRanking() {
   try {
     const q = query(collection(db, "reactionAllTime"), orderBy("ms", "asc"), limit(10));
-    const snaps = await getDocs(q);
-    return snaps.docs.map((d) => d.data());
+    const snaps = await withTimeout(getDocs(q), 4000);
+    return snaps ? snaps.docs.map((d) => d.data()) : [];
   } catch (e) {
     return [];
   }
@@ -123,14 +125,16 @@ export async function getMySummaryToday() {
   const userId = getUserId();
   try {
     const mineRef = doc(db, "reactionDaily", date, "records", userId);
-    const mineSnap = await getDoc(mineRef);
+    const mineSnap = await withTimeout(getDoc(mineRef), 3500);
+    if (!mineSnap) return null;
     if (!mineSnap.exists()) return null;
     const ms = mineSnap.data().ms;
 
     const col = collection(db, "reactionDaily", date, "records");
     const betterQ = query(col, where("ms", "<", ms));
-    const totalSnap = await getCountFromServer(col);
-    const betterSnap = await getCountFromServer(betterQ);
+    const totalSnap = await withTimeout(getCountFromServer(col), 3500);
+    const betterSnap = await withTimeout(getCountFromServer(betterQ), 3500);
+    if (!totalSnap || !betterSnap) return { ms, rank: null, total: null };
     const rank = betterSnap.data().count + 1;
     const total = totalSnap.data().count;
     return { ms, rank, total };

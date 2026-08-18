@@ -84,7 +84,7 @@ async function renderMainTicket() {
   ]);
 
   const reactionRow = reactionSummary
-    ? `<span class="value">${fmtMs(reactionSummary.ms)} <span style="color:var(--text-faint); font-size:11px;">(${reactionSummary.rank}/${reactionSummary.total}위)</span></span>`
+    ? `<span class="value">${fmtMs(reactionSummary.ms)}${reactionSummary.rank ? ` <span style="color:var(--text-faint); font-size:11px;">(${reactionSummary.rank}/${reactionSummary.total}위)</span>` : ""}</span>`
     : `<span class="value empty">아직 기록 없음</span>`;
 
   const colorParts = [];
@@ -201,12 +201,25 @@ function beginColorRound(diffKey) {
   showScreen("colorplay");
   $id("colorPlayTitle").textContent = `🎨 틀린색상 찾기 · ${cfg.label}`;
 
+  let cellEls = [];
+
   const { colors, grid, timeLimitMs } = ColorGame.startRound(diffKey, {
     onTick: (remainMs) => {
       const timerEl = $id("colorTimer");
       const sec = remainMs / 1000;
       timerEl.textContent = sec.toFixed(1);
       timerEl.classList.toggle("warn", sec <= 2);
+    },
+    onResolved: ({ success, reason, oddIndex, tappedIndex }) => {
+      // 정답/오답 여부와 실제 정답 위치를 바로 알려줌
+      cellEls.forEach((el) => (el.disabled = true));
+      if (cellEls[oddIndex]) cellEls[oddIndex].classList.add("reveal-correct");
+      if (!success && reason === "wrong" && tappedIndex != null && cellEls[tappedIndex]) {
+        cellEls[tappedIndex].classList.add("reveal-wrong");
+        cellEls[tappedIndex].innerHTML = `<span class="mark">✕</span>`;
+      }
+      if (cellEls[oddIndex]) cellEls[oddIndex].innerHTML += `<span class="mark">✓</span>`;
+      showToast(success ? "정답이에요! 🎉" : reason === "timeout" ? "시간 초과예요 ⏰" : "여기가 아니었어요");
     },
     onEnd: (result) => renderColorResult(result),
   });
@@ -218,13 +231,14 @@ function beginColorRound(diffKey) {
   const gridEl = $id("colorGrid");
   gridEl.style.gridTemplateColumns = `repeat(${grid}, 1fr)`;
   gridEl.innerHTML = "";
-  colors.forEach((color, i) => {
+  cellEls = colors.map((color, i) => {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = "color-cell";
     cell.style.background = color;
     cell.addEventListener("click", () => ColorGame.submitCellTap(i));
     gridEl.appendChild(cell);
+    return cell;
   });
 }
 
