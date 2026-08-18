@@ -3,7 +3,7 @@ import { todayKey, getUserId, makeSeededRng, spendStars, addStars, showToast, sh
 
 // "오늘의 무값!" — 동물의숲 무 시세 느낌의 미니 트레이딩 게임
 export const CROPS = [
-  { key: "radish", label: "황금무", emoji: "🥬", baseRange: [2, 4] },
+  { key: "radish", label: "황금무", emoji: "🫜", baseRange: [2, 4] },
   { key: "potato", label: "왕감자", emoji: "🍠", baseRange: [1, 3] },
   { key: "onion", label: "황금양파", emoji: "🧅", baseRange: [2, 5] },
   { key: "tomato", label: "꿀토마토", emoji: "🍅", baseRange: [3, 6] },
@@ -31,6 +31,27 @@ export const PATTERN_LABELS = {
 };
 
 function lerp(a, b, t) { return a + (b - a) * t; }
+
+// 패턴 하나가 하루(288틱) 전체에 걸쳐 완만하게 퍼지면 스릴이 없어서,
+// "1시간(12틱)" 단위로 패턴 전체가 반복되도록 압축했습니다.
+// 매 시간마다 진폭도 살짝 다르게 줘서 매번 똑같이 반복되는 느낌을 줄였어요.
+const CYCLE_TICKS = 12; // 5분 × 12 = 1시간
+
+function getPriceMultiplier(cropKey, dateStr, tick) {
+  const { pattern } = getCropDayInfo(cropKey, dateStr);
+  const cycleIndex = Math.floor(tick / CYCLE_TICKS);
+  const posInCycle = tick % CYCLE_TICKS;
+  const steps = pattern.length - 1;
+  const pos = (posInCycle / (CYCLE_TICKS - 1)) * steps;
+  const i0 = Math.min(steps, Math.floor(pos));
+  const i1 = Math.min(steps, i0 + 1);
+  const frac = pos - i0;
+  const rawMul = lerp(pattern[i0], pattern[i1], frac);
+
+  const rngAmp = makeSeededRng(`${dateStr}|${cropKey}|cycle|${cycleIndex}`);
+  const ampScale = 0.7 + rngAmp() * 0.7; // 이번 시간대는 평소보다 세거나 약하게 (0.7~1.4배)
+  return 1 + (rawMul - 1) * ampScale;
+}
 
 // ------------------------------------------------------------
 // 특정 날짜(date) 기준 각 농작물의 패턴/기준가
@@ -70,19 +91,14 @@ export function msUntilNextTick() {
 
 // dateStr을 넘기면 그 날짜 기준 가격(정산 등에 사용), 기본은 오늘
 export function getPrice(cropKey, tick = getCurrentTick(), dateStr = todayKey()) {
-  const { pattern, basePrice } = getCropDayInfo(cropKey, dateStr);
-  const steps = pattern.length - 1;
-  const pos = (tick / (TICKS_PER_DAY - 1)) * steps;
-  const i0 = Math.min(steps, Math.floor(pos));
-  const i1 = Math.min(steps, i0 + 1);
-  const frac = pos - i0;
-  const baseMul = lerp(pattern[i0], pattern[i1], frac);
+  const { basePrice } = getCropDayInfo(cropKey, dateStr);
+  const baseMul = getPriceMultiplier(cropKey, dateStr, tick);
   const smoothPrice = basePrice * baseMul;
 
-  // 매 틱(5분)마다 눈에 보이는 변화가 생기도록, 가격 규모에 비례한 최소 ±1 이상의
-  // 정수 단위 노이즈를 더한다 (기준가가 낮아도 매번 가격이 멈춰있지 않도록).
+  // 매 틱(5분)마다 눈에 보이는 변화가 생기도록, 가격 규모에 비례한 정수 단위
+  // 노이즈를 더한다 (기준가가 낮아도 매번 가격이 멈춰있지 않도록).
   const rngJitter = makeSeededRng(`${dateStr}|${cropKey}|tick|${tick}`);
-  const noiseUnits = Math.max(1, Math.round(smoothPrice * 0.15));
+  const noiseUnits = Math.max(1, Math.round(smoothPrice * 0.18));
   const delta = Math.floor(rngJitter() * (noiseUnits * 2 + 1)) - noiseUnits;
   const price = Math.round(smoothPrice) + delta;
   return Math.max(1, price);
@@ -193,6 +209,15 @@ export function getTodayStats() {
 let currentNickname = { nickname: "", emoji: "" };
 export function setNickname(n) { currentNickname = n; }
 
+// 닉네임을 바꿨을 때 오늘 이미 저장된 무값 거래 기록의 닉네임 표시도 최신화
+export async function refreshNicknameOnRecords() {
+  const payload = { nickname: currentNickname.nickname, emoji: currentNickname.emoji };
+  try {
+    const ref = doc(db, "cropDaily", todayKey(), "records", getUserId());
+    await withTimeout(setDoc(ref, payload, { merge: true }), 3000);
+  } catch (e) {}
+}
+
 export function buyCrop(cropKey, qty) {
   qty = Math.max(1, Math.floor(qty));
   const price = getPrice(cropKey);
@@ -282,8 +307,8 @@ export function shareCropResult() {
   }
   const sign = profitPct >= 0 ? "+" : "";
   shareText({
-    title: `🥬 오늘의 무값! 수익률 ${sign}${profitPct.toFixed(1)}%`,
+    title: `🫜 오늘의 무값! 수익률 ${sign}${profitPct.toFixed(1)}%`,
     description: `오늘의 놀이터에서 농작물 매매로 ${sign}${profitPct.toFixed(1)}% 수익을 냈어요!`,
-    imageEmoji: "🥬",
+    imageEmoji: "🫜",
   });
 }

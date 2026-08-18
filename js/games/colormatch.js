@@ -14,6 +14,15 @@ const REVEAL_DELAY_MS = 900; // 정답 위치를 보여주는 시간
 let currentNickname = { nickname: "", emoji: "" };
 export function setNickname(n) { currentNickname = n; }
 
+// 닉네임을 바꿨을 때 오늘 이미 저장된 틀린색상 기록의 닉네임 표시도 최신화
+export async function refreshNicknameOnRecords() {
+  const payload = { nickname: currentNickname.nickname, emoji: currentNickname.emoji };
+  try {
+    const ref = doc(db, "colorDaily", todayKey(), "records", getUserId());
+    await withTimeout(setDoc(ref, payload, { merge: true }), 3000);
+  } catch (e) {}
+}
+
 let round = null;
 let lastResult = null;
 

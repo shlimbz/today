@@ -62,7 +62,6 @@ function showScreen(name) {
     $id(`screen-${id}`).classList.toggle("hidden", id !== name);
   }
   $id("bottomNav").classList.toggle("hidden", name === "main");
-  $id("app").classList.toggle("with-nav", name !== "main");
 
   if (name === "reaction") Reaction.resetReactionScreen();
   if (name === "compat") resetCompatScreen();
@@ -92,9 +91,6 @@ function handleShareClick() {
 // ============================================================
 // 메인 화면 티켓
 // ============================================================
-// ============================================================
-// 메인 화면 티켓
-// ============================================================
 function recordLine(icon, label, top, valueText) {
   if (!top) {
     return `<div class="ticket-row"><span class="label">${icon} ${label}</span><span class="value empty">아직 기록 없음</span></div>`;
@@ -121,8 +117,8 @@ async function renderMainTicket() {
     : `<div class="ticket-row"><span class="label">💕 베스트 궁합</span><span class="value empty">아직 기록 없음</span></div>`;
 
   const cropRow = cropTop
-    ? `<div class="ticket-row"><span class="label">🥬 오늘의 무값!</span><span class="value">${cropTop.profitPct >= 0 ? "+" : ""}${cropTop.profitPct.toFixed(1)}% <span style="color:var(--text-faint); font-size:10.5px;">${cropTop.emoji || "🙂"}${cropTop.nickname || "익명"}</span></span></div>`
-    : `<div class="ticket-row"><span class="label">🥬 오늘의 무값!</span><span class="value empty">아직 기록 없음</span></div>`;
+    ? `<div class="ticket-row"><span class="label">🫜 오늘의 무값!</span><span class="value">${cropTop.profitPct >= 0 ? "+" : ""}${cropTop.profitPct.toFixed(1)}% <span style="color:var(--text-faint); font-size:10.5px;">${cropTop.emoji || "🙂"}${cropTop.nickname || "익명"}</span></span></div>`
+    : `<div class="ticket-row"><span class="label">🫜 오늘의 무값!</span><span class="value empty">아직 기록 없음</span></div>`;
 
   rows.innerHTML = `
     ${recordLine("⚡", "반응속도", reactionTop, reactionTop ? fmtMs(reactionTop.ms) : "")}
@@ -520,11 +516,15 @@ function openNicknameModal() {
     renderNickname();
     showToast("닉네임을 변경했어요!");
     close();
+    // 오늘 이미 저장된 순위 기록이 있다면 닉네임 표시도 함께 갱신 (실패해도 무시)
+    Reaction.refreshNicknameOnRecords();
+    ColorGame.refreshNicknameOnRecords();
+    Crop.refreshNicknameOnRecords();
   });
 }
 
 // ============================================================
-// 🥬 오늘의 무값! (농작물 거래)
+// 🫜 오늘의 무값! (농작물 거래)
 // ============================================================
 let cropTimerId = null;
 const cropQty = {}; // cropKey -> 현재 입력된 수량
@@ -606,7 +606,7 @@ function renderCropList() {
       <div class="crop-row-controls">
         <input type="number" min="1" value="${cropQty[c.key]}" class="crop-qty" data-crop="${c.key}" />
         <button class="crop-btn buy" data-action="buy" data-crop="${c.key}" type="button">구매 ⭐${price}</button>
-        <button class="crop-btn sell" data-action="sell" data-crop="${c.key}" type="button" ${owned <= 0 ? "disabled" : ""}>판매</button>
+        <button class="crop-btn sell${owned > 0 ? " sell-active" : ""}" data-action="sell" data-crop="${c.key}" type="button" ${owned <= 0 ? "disabled" : ""}>판매</button>
       </div>
     `;
     wrap.appendChild(row);

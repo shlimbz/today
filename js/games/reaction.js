@@ -75,6 +75,20 @@ let currentNickname = { nickname: "", emoji: "" };
 
 export function setNickname(n) { currentNickname = n; }
 
+// 닉네임을 바꿨을 때, 이미 Firestore에 저장돼있는 오늘 기록/전체 최고기록 문서의
+// 닉네임 표시도 함께 최신화한다 (문서가 없으면 규칙상 조용히 무시됨).
+export async function refreshNicknameOnRecords() {
+  const userId = getUserId();
+  const date = todayKey();
+  const payload = { nickname: currentNickname.nickname, emoji: currentNickname.emoji };
+  try {
+    await withTimeout(setDoc(doc(db, "reactionDaily", date, "records", userId), payload, { merge: true }), 3000);
+  } catch (e) {}
+  try {
+    await withTimeout(setDoc(doc(db, "reactionAllTime", userId), payload, { merge: true }), 3000);
+  } catch (e) {}
+}
+
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
 function setStageClass(cls) {
